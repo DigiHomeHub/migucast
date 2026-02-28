@@ -4,10 +4,21 @@
  * - `channel`: resolves a channel PID to a playback URL (with in-memory caching)
  * - `channelCache`: checks and returns cached playback URLs to avoid redundant API calls
  */
-import { get302URL, getAndroidURL, getAndroidURL720p, printLoginInfo } from "./androidURL.js";
+import {
+  get302URL,
+  getAndroidURL,
+  getAndroidURL720p,
+  printLoginInfo,
+} from "./androidURL.js";
 import { readFileSync } from "./fileUtil.js";
 import { host, pass, rateType, token, userId } from "../config.js";
-import { printDebug, printGreen, printGrey, printRed, printYellow } from "./colorOut.js";
+import {
+  printDebug,
+  printGreen,
+  printGrey,
+  printRed,
+  printYellow,
+} from "./colorOut.js";
 import type {
   AndroidURLResult,
   CacheEntry,
@@ -60,7 +71,9 @@ function interfaceStr(
 
   if (
     host !== "" &&
-    (headers["x-real-ip"] || headers["x-forwarded-for"] || host.indexOf(headers.host ?? "") !== -1)
+    (headers["x-real-ip"] ||
+      headers["x-forwarded-for"] ||
+      host.indexOf(headers.host ?? "") !== -1)
   ) {
     replaceHost = host;
   }
@@ -83,7 +96,11 @@ function interfaceStr(
  * Checks cache first, then fetches via the Android API, follows 302 redirects,
  * and caches the result (3h for success, 1min for failure).
  */
-async function channel(url: string, urlUserId: string, urlToken: string): Promise<ChannelResult> {
+async function channel(
+  url: string,
+  urlUserId: string,
+  urlToken: string,
+): Promise<ChannelResult> {
   const result: ChannelResult = {
     code: 200,
     pID: "",
@@ -160,7 +177,10 @@ async function channel(url: string, urlUserId: string, urlToken: string): Promis
   if (resObj.url === "") {
     const contentObj = resObj.content as Record<string, unknown> | null;
     const rawMsg = contentObj?.message;
-    const msg = typeof rawMsg === "string" ? rawMsg : "Program adjusted, temporarily unavailable";
+    const msg =
+      typeof rawMsg === "string"
+        ? rawMsg
+        : "Program adjusted, temporarily unavailable";
     result.desc = `${pid} ${msg}`;
     return result;
   }
@@ -197,7 +217,9 @@ function channelCache(pid: string, params: string): CacheResult {
       let msg = "Program adjusted, temporarily unavailable";
       if (cacheEntry.content !== null) {
         printLoginInfo(cacheEntry as unknown as AndroidURLResult);
-        msg = ((cacheEntry.content as Record<string, unknown>).message as string) ?? msg;
+        msg =
+          ((cacheEntry.content as Record<string, unknown>).message as string) ??
+          msg;
       }
       if (playURL === "") {
         cache.cacheDesc = `${pid} ${msg}`;

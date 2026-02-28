@@ -29,7 +29,11 @@ function Base64decrypt(str: string): string {
 }
 
 /** Encrypts plaintext with AES-256-CBC; key/IV are zero-padded if shorter than required. */
-function AESencrypt(data: string, baseKey: string = KEY_AES, ivStr: string = IV): string {
+function AESencrypt(
+  data: string,
+  baseKey: string = KEY_AES,
+  ivStr: string = IV,
+): string {
   let key = Buffer.from(baseKey, "utf8");
   let iv = Buffer.from(ivStr, "utf8");
 
@@ -49,7 +53,11 @@ function AESencrypt(data: string, baseKey: string = KEY_AES, ivStr: string = IV)
 }
 
 /** Decrypts AES-256-CBC ciphertext; key/IV are zero-padded if shorter than required. */
-function AESdecrypt(baseData: string, baseKey: string = KEY_AES, ivStr: string = IV): string {
+function AESdecrypt(
+  baseData: string,
+  baseKey: string = KEY_AES,
+  ivStr: string = IV,
+): string {
   let key = Buffer.from(baseKey, "utf8");
   let iv = Buffer.from(ivStr, "utf8");
 
@@ -70,7 +78,10 @@ function AESdecrypt(baseData: string, baseKey: string = KEY_AES, ivStr: string =
 }
 
 /** Signs data with an RSA private key (PKCS#8 DER) using PKCS1 padding, returns base64. */
-function RSAencrypt(data: string, publicKeyBase: string = RSA_PRIVATE_KEY_PKCS8): string {
+function RSAencrypt(
+  data: string,
+  publicKeyBase: string = RSA_PRIVATE_KEY_PKCS8,
+): string {
   const clearKey = publicKeyBase.replace(/\r/g, "");
   const keyBytes = Buffer.from(clearKey, "base64");
   const privateKey = crypto.createPrivateKey({
@@ -88,4 +99,11 @@ function RSAencrypt(data: string, publicKeyBase: string = RSA_PRIVATE_KEY_PKCS8)
   return dest.toString("base64");
 }
 
-export { getStringMD5, AESdecrypt, AESencrypt, Base64decrypt, Base64encrypt, RSAencrypt };
+export {
+  getStringMD5,
+  AESdecrypt,
+  AESencrypt,
+  Base64decrypt,
+  Base64encrypt,
+  RSAencrypt,
+};

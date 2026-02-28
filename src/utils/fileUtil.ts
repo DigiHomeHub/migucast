@@ -40,7 +40,11 @@ function renameFileSync(oldFilePath: string, newFilePath: string): void {
   fs.renameSync(oldFilePath, newFilePath);
 }
 
-function copyFileSync(filePath: string, newFilePath: string, mode: number): void {
+function copyFileSync(
+  filePath: string,
+  newFilePath: string,
+  mode: number,
+): void {
   fs.copyFileSync(filePath, newFilePath, mode);
 }
 

@@ -6,7 +6,13 @@
  * Writes to `.bak` files first, then atomically renames to avoid serving partial data.
  */
 import { dataList } from "./fetchList.js";
-import { appendFile, appendFileSync, copyFileSync, renameFileSync, writeFile } from "./fileUtil.js";
+import {
+  appendFile,
+  appendFileSync,
+  copyFileSync,
+  renameFileSync,
+  writeFile,
+} from "./fileUtil.js";
 import { updatePlaybackData } from "./playback.js";
 import { host, token, userId } from "../config.js";
 import refreshToken from "./refreshToken.js";
@@ -108,8 +114,16 @@ async function updatePE(_hours: number): Promise<void> {
   )) as PEResult;
   printGreen("PE data fetched successfully!");
 
-  copyFileSync(`${process.cwd()}/interface.txt`, `${process.cwd()}/interface.txt.bak`, 0);
-  copyFileSync(`${process.cwd()}/interfaceTXT.txt`, `${process.cwd()}/interfaceTXT.txt.bak`, 0);
+  copyFileSync(
+    `${process.cwd()}/interface.txt`,
+    `${process.cwd()}/interface.txt.bak`,
+    0,
+  );
+  copyFileSync(
+    `${process.cwd()}/interfaceTXT.txt`,
+    `${process.cwd()}/interfaceTXT.txt.bak`,
+    0,
+  );
 
   const interfacePath = `${process.cwd()}/interface.txt.bak`;
   const interfaceTXTPath = `${process.cwd()}/interfaceTXT.txt.bak`;
@@ -148,7 +162,8 @@ async function updatePE(_hours: number): Promise<void> {
             `http://app-sc.miguvideo.com/vms-match/v5/staticcache/basic/all-view-list/${data.mgdbId}/2/miguvideo`,
           )) as PEResult;
           const replayList =
-            replayResult.body?.replayList ?? peResult.body?.multiPlayList?.replayList;
+            replayResult.body?.replayList ??
+            peResult.body?.multiPlayList?.replayList;
           if (!replayList) {
             printYellow(`${data.mgdbId} ${pkInfoTitle} no replay available`);
             continue;
@@ -160,7 +175,8 @@ async function updatePE(_hours: number): Promise<void> {
             if (replay.name.match(/.*回放|赛.*/) !== null) {
               let timeStr = peResult.body?.keyword?.substring(7) ?? "";
               const preList = peResult.body?.multiPlayList?.preList;
-              const peResultStartTimeStr = preList?.[preList.length - 1]?.startTimeStr;
+              const peResultStartTimeStr =
+                preList?.[preList.length - 1]?.startTimeStr;
               if (peResultStartTimeStr !== undefined) {
                 timeStr = peResultStartTimeStr.substring(11, 16);
               }
@@ -169,7 +185,10 @@ async function updatePE(_hours: number): Promise<void> {
                 interfacePath,
                 `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" group-title="Sports-${relativeDate}",${competitionDesc}\n\${replace}/${replay.pID}\n`,
               );
-              appendFileSync(interfaceTXTPath, `${competitionDesc},\${replace}/${replay.pID}\n`);
+              appendFileSync(
+                interfaceTXTPath,
+                `${competitionDesc},\${replace}/${replay.pID}\n`,
+              );
             }
           }
           continue;
@@ -178,7 +197,10 @@ async function updatePE(_hours: number): Promise<void> {
         const liveList = peResult.body?.multiPlayList?.liveList;
         if (!liveList) continue;
         for (const live of liveList) {
-          if (live.name.match(/.*集锦.*/) !== null || live.startTimeStr === undefined) {
+          if (
+            live.name.match(/.*集锦.*/) !== null ||
+            live.startTimeStr === undefined
+          ) {
             continue;
           }
           const competitionDesc = `${data.competitionName} ${pkInfoTitle} ${live.name} ${live.startTimeStr.substring(11, 16)}`;
@@ -186,10 +208,15 @@ async function updatePE(_hours: number): Promise<void> {
             interfacePath,
             `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" group-title="Sports-${relativeDate}",${competitionDesc}\n\${replace}/${live.pID}\n`,
           );
-          appendFileSync(interfaceTXTPath, `${competitionDesc},\${replace}/${live.pID}\n`);
+          appendFileSync(
+            interfaceTXTPath,
+            `${competitionDesc},\${replace}/${live.pID}\n`,
+          );
         }
       } catch {
-        printYellow(`${data.mgdbId} ${pkInfoTitle} update failed (non-critical, can be ignored)`);
+        printYellow(
+          `${data.mgdbId} ${pkInfoTitle} update failed (non-critical, can be ignored)`,
+        );
       }
     }
     printGreen(`Date ${date} updated!`);

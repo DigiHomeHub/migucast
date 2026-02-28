@@ -5,10 +5,22 @@
  * Runs a periodic background update cycle for channel data and EPG schedules.
  */
 import http from "node:http";
-import { host, pass, port, programInfoUpdateInterval, token, userId } from "./config.js";
+import {
+  host,
+  pass,
+  port,
+  programInfoUpdateInterval,
+  token,
+  userId,
+} from "./config.js";
 import { getDateTimeStr } from "./utils/time.js";
 import update from "./utils/updateData.js";
-import { printBlue, printGreen, printMagenta, printRed } from "./utils/colorOut.js";
+import {
+  printBlue,
+  printGreen,
+  printMagenta,
+  printRed,
+} from "./utils/colorOut.js";
 import { delay } from "./utils/fetchList.js";
 import { channel, interfaceStr } from "./utils/appUtils.js";
 
@@ -36,7 +48,9 @@ const server = http.createServer((req, res) => {
       const urlSplit = url.split("/");
       if (urlSplit[1] !== pass) {
         printRed("Authentication failed");
-        res.writeHead(200, { "Content-Type": "application/json;charset=UTF-8" });
+        res.writeHead(200, {
+          "Content-Type": "application/json;charset=UTF-8",
+        });
         res.end("Authentication failed");
         loading = false;
         return;
@@ -45,7 +59,10 @@ const server = http.createServer((req, res) => {
         if (urlSplit.length > 3) {
           url = url.substring(pass.length + 1);
         } else {
-          url = urlSplit.length === 2 ? "/" : "/" + (urlSplit[urlSplit.length - 1] ?? "");
+          url =
+            urlSplit.length === 2
+              ? "/"
+              : "/" + (urlSplit[urlSplit.length - 1] ?? "");
         }
       }
     }
@@ -58,7 +75,10 @@ const server = http.createServer((req, res) => {
       if (urlSplit.length >= 3) {
         urlUserId = urlSplit[1] ?? "";
         urlToken = urlSplit[2] ?? "";
-        url = urlSplit.length === 3 ? "/" : "/" + (urlSplit[urlSplit.length - 1] ?? "");
+        url =
+          urlSplit.length === 3
+            ? "/"
+            : "/" + (urlSplit[urlSplit.length - 1] ?? "");
       }
     } else {
       urlUserId = userId;
@@ -84,7 +104,10 @@ const server = http.createServer((req, res) => {
       }
       res.setHeader("Content-Type", interfaceObj.contentType);
       if (url === "/m3u") {
-        res.setHeader("content-disposition", 'inline; filename="interface.m3u"');
+        res.setHeader(
+          "content-disposition",
+          'inline; filename="interface.m3u"',
+        );
       }
       res.statusCode = 200;
       res.end(interfaceObj.content);
@@ -96,7 +119,9 @@ const server = http.createServer((req, res) => {
 
     if (result.code !== 302) {
       printRed(result.desc);
-      res.writeHead(result.code, { "Content-Type": "application/json;charset=UTF-8" });
+      res.writeHead(result.code, {
+        "Content-Type": "application/json;charset=UTF-8",
+      });
       res.end(result.desc);
       loading = false;
       return;
@@ -140,9 +165,15 @@ server.listen(port, () => {
     }
   })();
 
-  printGreen(`Local address: http://localhost:${port}${pass === "" ? "" : "/" + pass}`);
-  printGreen("This software is completely free. If you paid for it, you've been scammed.");
-  printGreen("Open source: https://github.com/develop202/migu_video Issues welcome, stars appreciated");
+  printGreen(
+    `Local address: http://localhost:${port}${pass === "" ? "" : "/" + pass}`,
+  );
+  printGreen(
+    "This software is completely free. If you paid for it, you've been scammed.",
+  );
+  printGreen(
+    "Open source: https://github.com/develop202/migu_video Issues welcome, stars appreciated",
+  );
   if (host !== "") {
     printGreen(`Custom address: ${host}${pass === "" ? "" : "/" + pass}`);
   }

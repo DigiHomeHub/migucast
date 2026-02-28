@@ -93,7 +93,9 @@ function uniqueData(liveList: CategoryData[]): CategoryData[] {
 
   uniqueItem.forEach((item) => {
     const { categoryName, ...program } = item;
-    categoryMap[categoryName]?.push(program as CategoryData["dataList"][number]);
+    categoryMap[categoryName]?.push(
+      program as CategoryData["dataList"][number],
+    );
   });
 
   liveList.forEach((live) => {
