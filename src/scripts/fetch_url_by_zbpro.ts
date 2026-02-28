@@ -3,7 +3,7 @@
  * and regenerates XMLTV EPG data from Migu/CNTV.
  * Designed for GitHub Actions or similar CI environments (runs every 6 hours).
  */
-import { printGreen, printMagenta, printRed } from "../utils/color_out.js";
+import { logger } from "../logger.js";
 import { appendFileSync, renameFileSync } from "../utils/file_util.js";
 import { updateEpgData } from "../utils/epg.js";
 import { writeFileSync } from "node:fs";
@@ -11,35 +11,35 @@ import { fetchCategoryChannels } from "../utils/channel_list.js";
 import updateChannels from "../utils/zbpro.js";
 
 const start = new Date();
-printMagenta("Starting update...");
+logger.info("Starting update...");
 
-printMagenta("Updating interface file...");
+logger.info("Updating interface file...");
 let updateResult = 2;
 for (let i = 0; i < 3; i++) {
   try {
     updateResult = await updateChannels();
     break;
   } catch {
-    printRed("Interface update error, retrying...");
+    logger.error("Interface update error, retrying...");
   }
 }
 
 switch (updateResult) {
   case 1:
-    printGreen("Interface data is up to date, no update needed");
+    logger.info("Interface data is up to date, no update needed");
     break;
   case 2:
-    printRed("Interface request failed");
+    logger.error("Interface request failed");
     process.exit(1);
     break;
   default:
-    printGreen("Interface file updated!");
+    logger.info("Interface file updated!");
     break;
 }
 
 if (!(start.getHours() % 6)) {
   const datas = await fetchCategoryChannels();
-  printGreen("Data fetched successfully!");
+  logger.info("Data fetched successfully!");
 
   try {
     const epgFile = `${process.cwd()}/epg.xml.bak`;
@@ -49,7 +49,7 @@ if (!(start.getHours() % 6)) {
       `<?xml version="1.0" encoding="UTF-8"?>\n` +
         `<tv generator-info-name="Tak" generator-info-url="https://github.com/develop202/migu_video">\n`,
     );
-    printMagenta("Updating EPG file...");
+    logger.info("Updating EPG file...");
     for (const data of datas) {
       for (const item of data.dataList) {
         await updateEpgData(item, epgFile, 10000, 8 * 60 * 60 * 1000);
@@ -59,10 +59,10 @@ if (!(start.getHours() % 6)) {
     appendFileSync(epgFile, `</tv>\n`);
     renameFileSync(epgFile, epgFile.replace(".bak", ""));
 
-    printGreen("EPG file updated!");
+    logger.info("EPG file updated!");
   } catch {
-    printRed("EPG file update failed!");
+    logger.error("EPG file update failed!");
   }
 }
 
-printGreen(`Elapsed ${(Date.now() - start.getTime()) / 1000}s`);
+logger.info(`Elapsed ${(Date.now() - start.getTime()) / 1000}s`);

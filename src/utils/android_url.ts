@@ -5,7 +5,7 @@
  * and 302 Location header extraction with retry.
  */
 import { getDdCalcuUrl, getDdCalcuUrl720p } from "./dd_calcu_url.js";
-import { printDebug, printGreen, printRed, printYellow } from "./color_out.js";
+import { logger } from "../logger.js";
 import { enableH265, enableHdr } from "../config.js";
 import { delay } from "./channel_list.js";
 import { getStringMd5 } from "./crypto_utils.js";
@@ -34,10 +34,10 @@ async function getAndroidUrl(
   if (!respData) {
     return { url: "", rateType: 0, content: null };
   }
-  printDebug(respData);
+  logger.trace(respData);
 
   if (respData.rid === "TIPS_NEED_MEMBER") {
-    printYellow("Account has no membership, reducing quality");
+    logger.warn("Account has no membership, reducing quality");
     const respRateType =
       parseInt(String(respData.body?.urlInfo?.rateType)) > 4 ? 4 : 3;
     respData = await fetchPlaybackUrl(pid, respRateType, opts);
@@ -46,7 +46,7 @@ async function getAndroidUrl(
     }
 
     if (respData.rid === "TIPS_NEED_MEMBER") {
-      printYellow("Account is not diamond member, reducing quality");
+      logger.warn("Account is not diamond member, reducing quality");
       respData = await fetchPlaybackUrl(pid, 3, opts);
       if (!respData) {
         return { url: "", rateType: 0, content: null };
@@ -54,7 +54,7 @@ async function getAndroidUrl(
     }
   }
 
-  printDebug(respData);
+  logger.trace(respData);
   const url = respData.body?.urlInfo?.url;
 
   if (!url) {
@@ -75,7 +75,7 @@ async function getAndroidUrl(
 
 /** Fetches a 720p playback URL without user credentials (anonymous access). */
 async function getAndroidUrl720p(pid: string): Promise<AndroidUrlResult> {
-  printDebug("clientId: " + clientId);
+  logger.trace("clientId: " + clientId);
 
   const respData = await fetchPlaybackUrl720p(pid, clientId, {
     enableHdr,
@@ -84,7 +84,7 @@ async function getAndroidUrl720p(pid: string): Promise<AndroidUrlResult> {
   if (!respData) {
     return { url: "", rateType: 0, content: null };
   }
-  printDebug(respData);
+  logger.trace(respData);
 
   const url = respData.body?.urlInfo?.url;
 
@@ -113,12 +113,12 @@ async function resolveRedirectUrl(resObj: AndroidUrlResult): Promise<string> {
     let attempt = 1;
     while (attempt <= 6) {
       if (attempt >= 2) {
-        printYellow(`Fetch failed, retry #${attempt - 1}`);
+        logger.warn(`Fetch failed, retry #${attempt - 1}`);
       }
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         controller.abort();
-        printRed("Request timed out");
+        logger.error("Request timed out");
       }, 6000);
       const obj = await fetch(resObj.url, {
         method: "GET",
@@ -126,7 +126,7 @@ async function resolveRedirectUrl(resObj: AndroidUrlResult): Promise<string> {
         signal: controller.signal,
       }).catch((err: unknown) => {
         clearTimeout(timeoutId);
-        console.log(err);
+        logger.error(err);
         return undefined;
       });
       clearTimeout(timeoutId);
@@ -145,9 +145,9 @@ async function resolveRedirectUrl(resObj: AndroidUrlResult): Promise<string> {
       attempt++;
     }
   } catch (error) {
-    console.log(error);
+    logger.error(error);
   }
-  printRed("Fetch failed, returning original URL");
+  logger.error("Fetch failed, returning original URL");
   return "";
 }
 
@@ -163,14 +163,14 @@ function printLoginInfo(
   const auth = body?.auth as Record<string, unknown> | undefined;
 
   if (auth?.logined) {
-    printGreen("Login authentication successful");
+    logger.info("Login authentication successful");
     if (auth.authResult === "FAIL") {
-      printRed(
+      logger.error(
         `Auth failed, incomplete video content, may require VIP: ${auth.resultDesc}`,
       );
     }
   } else {
-    printYellow("Not logged in");
+    logger.warn("Not logged in");
   }
 }
 

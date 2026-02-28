@@ -4,7 +4,7 @@
  * with configurable timeout and AbortController support.
  */
 import os from "node:os";
-import { printRed } from "./color_out.js";
+import { logger } from "../logger.js";
 
 /** Returns all non-internal IP addresses for the given IP version (4 or 6). */
 function getLocalIpAddresses(ver: number = 4): string[] {
@@ -31,7 +31,7 @@ async function fetchUrl(
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
     controller.abort();
-    printRed("Request timed out");
+    logger.error("Request timed out");
   }, timeout);
 
   const res = await fetch(url, {
@@ -43,7 +43,7 @@ async function fetchUrl(
       return r.json();
     })
     .catch((err: unknown) => {
-      console.log(err);
+      logger.error(err);
       clearTimeout(timeoutId);
       return undefined;
     });

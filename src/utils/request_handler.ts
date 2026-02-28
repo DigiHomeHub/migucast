@@ -12,13 +12,7 @@ import {
 } from "./android_url.js";
 import { readFileSync } from "./file_util.js";
 import { host, pass, rateType, token, userId } from "../config.js";
-import {
-  printDebug,
-  printGreen,
-  printGrey,
-  printRed,
-  printYellow,
-} from "./color_out.js";
+import { logger } from "../logger.js";
 import type {
   AndroidUrlResult,
   CacheEntry,
@@ -59,8 +53,8 @@ function servePlaylist(
   try {
     result.content = readFileSync(fileName);
   } catch (error) {
-    printRed("Failed to read file");
-    console.log(error);
+    logger.error("Failed to read file");
+    logger.error(error);
     return result;
   }
   if (url === "/epg.xml") {
@@ -117,12 +111,12 @@ async function channel(
   let params = "";
 
   if (urlSplit.match(/\?/)) {
-    printGreen("Processing incoming parameters");
+    logger.info("Processing incoming parameters");
     const urlSplit1 = urlSplit.split("?");
     pid = urlSplit1[0]!;
     params = urlSplit1[1] ?? "";
   } else {
-    printGrey("No parameters provided");
+    logger.debug("No parameters provided");
   }
 
   if (isNaN(Number(pid))) {
@@ -130,7 +124,7 @@ async function channel(
     return result;
   }
 
-  printYellow("Channel ID " + pid);
+  logger.warn("Channel ID " + pid);
 
   const cache = channelCache(pid, params);
   if (cache.haveCache) {
@@ -148,11 +142,11 @@ async function channel(
       resObj = await getAndroidUrl(urlUserId, urlToken, pid, rateType);
     }
   } catch (error) {
-    console.log(error);
+    logger.error(error);
     result.desc = "URL request error";
     return result;
   }
-  printDebug(`URL after encryption: ${resObj.url}`);
+  logger.trace(`URL after encryption: ${resObj.url}`);
 
   if (resObj.url !== "") {
     const location = await resolveRedirectUrl(resObj);
@@ -162,7 +156,7 @@ async function channel(
   }
   printLoginInfo(resObj);
 
-  printGreen(`Caching program ${pid}`);
+  logger.info(`Caching program ${pid}`);
   let cacheTtlMs = 3 * 60 * 60 * 1000;
   if (resObj.url === "") {
     cacheTtlMs = 1 * 60 * 1000;
@@ -193,7 +187,7 @@ async function channel(
     }
   }
 
-  printGreen("URL fetched successfully");
+  logger.info("URL fetched successfully");
   result.code = 302;
   result.playUrl = playUrl;
   return result;
@@ -232,7 +226,7 @@ function channelCache(pid: string, params: string): CacheLookupResult {
           playUrl = `${playUrl}&${key}=${value}`;
         }
       }
-      printGreen("Using cached data");
+      logger.info("Using cached data");
       cache.code = 302;
       cache.cacheDesc = "Cache hit";
       cache.playUrl = playUrl;

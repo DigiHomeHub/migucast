@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../../src/config.js", () => ({
   userId: "testuser1234",
+  logLevel: "info",
+  logFile: undefined,
 }));
 
 vi.mock("../../src/utils/net.js", () => ({

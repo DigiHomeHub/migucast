@@ -3,6 +3,7 @@
  * Delegates the actual API call to the centralized API layer.
  */
 import { refreshMiguToken } from "../api/migu_client.js";
+import { logger } from "../logger.js";
 
 /** Refreshes the Migu user token; returns `true` on success, `false` on any failure. */
 async function refreshToken(userId: string, token: string): Promise<boolean> {
@@ -16,10 +17,10 @@ async function refreshToken(userId: string, token: string): Promise<boolean> {
       return true;
     }
     if (respResult) {
-      console.dir(respResult, { depth: null });
+      logger.warn("Token refresh returned non-success", respResult);
     }
-  } catch {
-    // request failed
+  } catch (error) {
+    logger.error("Token refresh request failed", error);
   }
 
   return false;

@@ -8,7 +8,7 @@ import {
   fetchCategoryDetail,
 } from "../api/migu_client.js";
 import type { CategoryData, ChannelInfo } from "../types/index.js";
-import { printYellow } from "./color_out.js";
+import { logger } from "../logger.js";
 
 /** Returns a Promise that resolves after `ms` milliseconds (used for retry back-off). */
 function delay(ms: number): Promise<void> {
@@ -57,23 +57,23 @@ async function fetchCategories(): Promise<LiveItem[]> {
 
   const rawFirst = resp.body.liveList[0];
   if (rawFirst) {
-    printYellow(
+    logger.warn(
       `[diag] Raw API liveList[0] keys: ${Object.keys(rawFirst).join(", ")}`,
     );
-    printYellow(`[diag] Raw vomsID=${rawFirst.vomsID}, name=${rawFirst.name}`);
+    logger.warn(`[diag] Raw vomsID=${rawFirst.vomsID}, name=${rawFirst.name}`);
     const rawChannel = rawFirst.dataList?.[0];
     if (rawChannel) {
-      printYellow(
+      logger.warn(
         `[diag] Raw channel[0] keys: ${Object.keys(rawChannel).join(", ")}`,
       );
-      printYellow(`[diag] Raw pID=${rawChannel.pID}, name=${rawChannel.name}`);
+      logger.warn(`[diag] Raw pID=${rawChannel.pID}, name=${rawChannel.name}`);
     }
   }
 
   let liveList = resp.body.liveList.map(mapLiveItem);
 
   if (liveList[0]) {
-    printYellow(
+    logger.warn(
       `[diag] Mapped liveList[0] vomsId=${liveList[0].vomsId}, name=${liveList[0].name}`,
     );
   }
@@ -103,10 +103,10 @@ async function fetchCategoryChannels(): Promise<CategoryData[]> {
 
       if (i === 0 && resp.body.dataList[0]) {
         const rawCh = resp.body.dataList[0];
-        printYellow(
+        logger.warn(
           `[diag] Category detail raw channel[0] keys: ${Object.keys(rawCh).join(", ")}`,
         );
-        printYellow(
+        logger.warn(
           `[diag] Category detail raw pID=${rawCh.pID}, name=${rawCh.name}`,
         );
       }
@@ -115,7 +115,7 @@ async function fetchCategoryChannels(): Promise<CategoryData[]> {
 
       if (i === 0 && cates[i]!.dataList[0]) {
         const mapped = cates[i]!.dataList[0]!;
-        printYellow(
+        logger.warn(
           `[diag] Mapped channel[0] pid=${mapped.pid}, name=${mapped.name}`,
         );
       }

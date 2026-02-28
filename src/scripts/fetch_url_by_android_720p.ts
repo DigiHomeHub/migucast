@@ -12,23 +12,18 @@ import {
   writeFile,
 } from "../utils/file_util.js";
 import { updateEpgData } from "../utils/epg.js";
-import {
-  printBlue,
-  printGreen,
-  printRed,
-  printYellow,
-} from "../utils/color_out.js";
+import { logger } from "../logger.js";
 
 async function fetchURLByAndroid720p(): Promise<void> {
   const start = Date.now();
 
   const datas = await fetchCategoryChannels();
-  printGreen("Data fetched successfully!");
+  logger.info("Data fetched successfully!");
 
   const path = process.cwd() + "/interface.txt.bak";
   writeFile(path, "");
 
-  printYellow("Updating...");
+  logger.warn("Updating...");
 
   const epgFile = process.cwd() + "/epg.xml.bak";
   writeFile(
@@ -44,7 +39,7 @@ async function fetchURLByAndroid720p(): Promise<void> {
 
   for (let i = 0; i < datas.length; i++) {
     const data = datas[i]!.dataList;
-    printBlue(`Updating category ###: ${datas[i]!.name}`);
+    logger.info(`Updating category ###: ${datas[i]!.name}`);
 
     for (let j = 0; j < data.length; j++) {
       const item = data[j]!;
@@ -56,7 +51,7 @@ async function fetchURLByAndroid720p(): Promise<void> {
         let z = 1;
         while (z <= 6) {
           if (z >= 2) {
-            printYellow(`${item.name} fetch failed, retry #${z - 1}`);
+            logger.warn(`${item.name} fetch failed, retry #${z - 1}`);
           }
           const obj = await fetch(resObj.url, {
             method: "GET",
@@ -80,7 +75,7 @@ async function fetchURLByAndroid720p(): Promise<void> {
       }
 
       if (resObj.url === "") {
-        printRed(`${item.name} update failed`);
+        logger.error(`${item.name} update failed`);
         continue;
       }
 
@@ -88,7 +83,7 @@ async function fetchURLByAndroid720p(): Promise<void> {
         path,
         `#EXTINF:-1 tvg-id="${item.name}" tvg-name="${item.name}" tvg-logo="${item.pics.highResolutionH}" group-title="${datas[i]!.name}",${item.name}\n${resObj.url}\n`,
       );
-      printGreen(`${item.name} updated!`);
+      logger.info(`${item.name} updated!`);
     }
   }
 
@@ -96,7 +91,7 @@ async function fetchURLByAndroid720p(): Promise<void> {
   renameFileSync(epgFile, epgFile.replace(".bak", ""));
   renameFileSync(path, path.replace(".bak", ""));
   const end = Date.now();
-  printYellow(`Elapsed: ${(end - start) / 1000}s`);
+  logger.warn(`Elapsed: ${(end - start) / 1000}s`);
 }
 
 void fetchURLByAndroid720p();

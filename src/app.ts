@@ -15,12 +15,7 @@ import {
 } from "./config.js";
 import { getReadableDateTime } from "./utils/time.js";
 import { updatePlaylistData } from "./utils/update_data.js";
-import {
-  printBlue,
-  printGreen,
-  printMagenta,
-  printRed,
-} from "./utils/color_out.js";
+import { logger } from "./logger.js";
 import { channel, servePlaylist } from "./utils/request_handler.js";
 
 let hours = 0;
@@ -47,14 +42,14 @@ const server = http.createServer((req, res) => {
       if (pass !== "") {
         const urlSplit = url.split("/");
         if (urlSplit[1] !== pass) {
-          printRed("Authentication failed");
+          logger.error("Authentication failed");
           res.writeHead(200, {
             "Content-Type": "application/json;charset=UTF-8",
           });
           res.end("Authentication failed");
           return;
         } else {
-          printGreen("Authentication successful");
+          logger.info("Authentication successful");
           if (urlSplit.length > 3) {
             url = url.substring(pass.length + 1);
           } else {
@@ -84,14 +79,14 @@ const server = http.createServer((req, res) => {
         urlToken = token;
       }
 
-      printMagenta("Request URL: " + url);
+      logger.info("Request URL: " + url);
 
       if (method !== "GET") {
         res.writeHead(200, {
           "Content-Type": "application/json;charset=UTF-8",
         });
         res.end(JSON.stringify({ data: "Please use GET request" }));
-        printRed(`Non-GET request received: ${method}`);
+        logger.error(`Non-GET request received: ${method}`);
         return;
       }
 
@@ -117,7 +112,7 @@ const server = http.createServer((req, res) => {
       const result = await channel(url, urlUserId, urlToken);
 
       if (result.code !== 302) {
-        printRed(result.desc);
+        logger.error(result.desc);
         res.writeHead(result.code, {
           "Content-Type": "application/json;charset=UTF-8",
         });
@@ -131,8 +126,8 @@ const server = http.createServer((req, res) => {
       });
       res.end();
     } catch (error) {
-      console.log(error);
-      printRed("Unhandled request error");
+      logger.error(error);
+      logger.error("Unhandled request error");
       if (!res.headersSent) {
         res.writeHead(500, {
           "Content-Type": "application/json;charset=UTF-8",
@@ -149,15 +144,15 @@ server.listen(port, () => {
   setInterval(
     () => {
       void (async () => {
-        printBlue(`Preparing file update ${getReadableDateTime(new Date())}`);
+        logger.info(`Preparing file update ${getReadableDateTime(new Date())}`);
         hours += updateInterval;
         try {
           await updatePlaylistData(hours);
         } catch (error) {
-          console.log(error);
-          printRed("Update failed");
+          logger.error(error);
+          logger.error("Update failed");
         }
-        printBlue(`Running for ${hours} hours`);
+        logger.info(`Running for ${hours} hours`);
       })();
     },
     updateInterval * 60 * 60 * 1000,
@@ -167,21 +162,21 @@ server.listen(port, () => {
     try {
       await updatePlaylistData(hours);
     } catch (error) {
-      console.log(error);
-      printRed("Update failed");
+      logger.error(error);
+      logger.error("Update failed");
     }
   })();
 
-  printGreen(
+  logger.info(
     `Local address: http://localhost:${port}${pass === "" ? "" : "/" + pass}`,
   );
-  printGreen(
+  logger.info(
     "This software is completely free. If you paid for it, you've been scammed.",
   );
-  printGreen(
+  logger.info(
     "Open source: https://github.com/develop202/migu_video Issues welcome, stars appreciated",
   );
   if (host !== "") {
-    printGreen(`Custom address: ${host}${pass === "" ? "" : "/" + pass}`);
+    logger.info(`Custom address: ${host}${pass === "" ? "" : "/" + pass}`);
   }
 });

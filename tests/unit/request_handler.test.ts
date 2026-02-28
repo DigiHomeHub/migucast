@@ -7,6 +7,8 @@ vi.mock("../../src/config.js", () => ({
   token: "defaultToken",
   userId: "defaultUser",
   debug: false,
+  logLevel: "info",
+  logFile: undefined,
 }));
 
 vi.mock("../../src/utils/time.js", () => ({

@@ -7,6 +7,8 @@ vi.mock("../../src/api/migu_client.js", () => ({
 
 vi.mock("../../src/config.js", () => ({
   debug: false,
+  logLevel: "info",
+  logFile: undefined,
 }));
 
 vi.mock("../../src/utils/time.js", () => ({

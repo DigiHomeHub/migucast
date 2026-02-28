@@ -4,7 +4,7 @@
  * repository, decrypts each stream URL, validates against a domain whitelist,
  * and produces M3U + TXT playlist files.
  */
-import { printGreen, printMagenta, printRed } from "./color_out.js";
+import { logger } from "../logger.js";
 import crypto from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
@@ -65,7 +65,7 @@ async function getAllURL(): Promise<ZbproUrlResult | number> {
   await fetch("http://pro.fengcaizb.com/channels/pro.gz", { headers }).then(
     async (pro_gz) => {
       if (!pro_gz?.ok) {
-        printRed("Request failed");
+        logger.error("Request failed");
         status = 2;
         return;
       }
@@ -73,9 +73,9 @@ async function getAllURL(): Promise<ZbproUrlResult | number> {
       const bufferArray = await pro_gz.arrayBuffer();
       const buffer = Buffer.from(bufferArray);
 
-      printMagenta("Decompressing...");
+      logger.info("Decompressing...");
       const decompressed = gunzipSync(buffer);
-      printMagenta(
+      logger.info(
         `Decompressed: ${buffer.length} bytes -> ${decompressed.length} bytes`,
       );
       const resultJSON = decompressed.toString();
@@ -164,12 +164,12 @@ async function getAllURL(): Promise<ZbproUrlResult | number> {
           channelsURLM3U.push(channelURLM3U);
           channelsURLTXT.push(channelURLTXT);
           sumChannel += 1;
-          printGreen(`${i} ${sumChannel} ${channel.title} added!`);
+          logger.info(`${i} ${sumChannel} ${channel.title} added!`);
         }
       }
 
       const updateTime = new Date(result.timestamp + 8 * 60 * 60 * 1000);
-      console.log(
+      logger.info(
         `File date: ${updateTime.getFullYear()}-${updateTime.getMonth() + 1}-${updateTime.getDate()} ${String(updateTime.getHours()).padStart(2, "0")}:${String(updateTime.getMinutes()).padStart(2, "0")}:${String(updateTime.getSeconds()).padStart(2, "0")}`,
       );
     },
@@ -182,12 +182,12 @@ async function getAllURL(): Promise<ZbproUrlResult | number> {
   const m3u = channelsURLM3U.join("\n");
   const txt = channelsURLTXT.join("\n");
 
-  printGreen(`Total updated: ${sumChannel} channels`);
+  logger.info(`Total updated: ${sumChannel} channels`);
   if (debug) {
     Object.entries(domains)
       .sort((a, b) => b[1].times - a[1].times)
       .forEach(([, item]) => {
-        console.log(`"${item.value}", count: ${item.times}`);
+        logger.debug(`"${item.value}", count: ${item.times}`);
       });
   }
   return { m3u, txt };
