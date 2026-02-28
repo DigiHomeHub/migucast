@@ -18,7 +18,11 @@ import { host, token, userId } from "../config.js";
 import refreshToken from "./refresh_token.js";
 import { printGreen, printRed, printYellow } from "./color_out.js";
 import { getDateString } from "./time.js";
-import { fetchUrl } from "./net.js";
+import {
+  fetchMatchList,
+  fetchMatchBasicData,
+  fetchMatchReplayList,
+} from "../api/migu_client.js";
 
 /** Fetches all TV channel data, regenerates playlist and EPG files, and refreshes the token periodically. */
 async function updateTV(hours: number): Promise<void> {
@@ -90,36 +94,15 @@ async function updateTV(hours: number): Promise<void> {
   printYellow(`TV update took ${(end - start) / 1000}s`);
 }
 
-interface PEData {
-  mgdbId: string;
-  pkInfoTitle: string;
-  competitionName: string;
-  competitionLogo: string;
-  confrontTeams?: Array<{ name: string }>;
-}
-
-interface PEResult {
-  body?: {
-    endTime?: number;
-    keyword?: string;
-    replayList?: Array<{ name: string; pID: string }>;
-    multiPlayList?: {
-      replayList?: Array<{ name: string; pID: string }>;
-      liveList?: Array<{ name: string; pID: string; startTimeStr?: string }>;
-      preList?: Array<{ startTimeStr?: string }>;
-    };
-    days?: string[];
-    matchList?: Record<string, PEData[]>;
-  };
-}
-
 /** Fetches sports match schedules (live + replay) and appends them to the playlist files. */
 async function updatePE(_hours: number): Promise<void> {
   const start = Date.now();
 
-  const datas = (await fetchUrl(
-    "http://v0-sc.miguvideo.com/vms-match/v6/staticcache/basic/match-list/normal-match-list/0/all/default/1/miguvideo",
-  )) as PEResult;
+  const datas = await fetchMatchList();
+  if (!datas) {
+    printYellow("PE match list fetch failed, skipping sports update");
+    return;
+  }
   printGreen("PE data fetched successfully!");
 
   copyFileSync(
@@ -160,23 +143,21 @@ async function updatePE(_hours: number): Promise<void> {
       if (data.confrontTeams) {
         pkInfoTitle = `${data.confrontTeams[0]!.name}VS${data.confrontTeams[1]!.name}`;
       }
-      const peResult = (await fetchUrl(
-        `https://vms-sc.miguvideo.com/vms-match/v6/staticcache/basic/basic-data/${data.mgdbId}/miguvideo`,
-      )) as PEResult;
+      const peResult = await fetchMatchBasicData(data.mgdbId);
+      if (!peResult) continue;
 
       try {
         if ((peResult.body?.endTime ?? 0) < Date.now()) {
-          const replayResult = (await fetchUrl(
-            `http://app-sc.miguvideo.com/vms-match/v5/staticcache/basic/all-view-list/${data.mgdbId}/2/miguvideo`,
-          )) as PEResult;
+          const replayResult = await fetchMatchReplayList(data.mgdbId);
           const replayList =
-            replayResult.body?.replayList ??
+            replayResult?.body?.replayList ??
             peResult.body?.multiPlayList?.replayList;
           if (!replayList) {
             printYellow(`${data.mgdbId} ${pkInfoTitle} no replay available`);
             continue;
           }
           for (const replay of replayList) {
+            if (!replay.name || !replay.pID) continue;
             if (replay.name.match(/.*集锦|训练.*/) !== null) {
               continue;
             }
@@ -185,7 +166,10 @@ async function updatePE(_hours: number): Promise<void> {
               const preList = peResult.body?.multiPlayList?.preList;
               const peResultStartTimeStr =
                 preList?.[preList.length - 1]?.startTimeStr;
-              if (peResultStartTimeStr !== undefined) {
+              if (
+                peResultStartTimeStr !== undefined &&
+                peResultStartTimeStr !== null
+              ) {
                 timeStr = peResultStartTimeStr.substring(11, 16);
               }
               const competitionDesc = `${data.competitionName} ${pkInfoTitle} ${replay.name} ${timeStr}`;
@@ -205,10 +189,8 @@ async function updatePE(_hours: number): Promise<void> {
         const liveList = peResult.body?.multiPlayList?.liveList;
         if (!liveList) continue;
         for (const live of liveList) {
-          if (
-            live.name.match(/.*集锦.*/) !== null ||
-            live.startTimeStr === undefined
-          ) {
+          if (!live.name || !live.pID || !live.startTimeStr) continue;
+          if (live.name.match(/.*集锦.*/) !== null) {
             continue;
           }
           const competitionDesc = `${data.competitionName} ${pkInfoTitle} ${live.name} ${live.startTimeStr.substring(11, 16)}`;

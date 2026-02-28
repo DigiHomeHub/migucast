@@ -1,19 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../../src/utils/net.js", () => ({
-  fetchUrl: vi.fn(),
+vi.mock("../../src/config.js", () => ({
+  debug: false,
 }));
 
-vi.mock("../../src/utils/crypto_utils.js", () => ({
-  aesEncrypt: vi.fn(() => "mockEncrypted"),
-  getStringMd5: vi.fn(() => "mockMD5"),
-  rsaSign: vi.fn(() => "mockRSASign"),
+vi.mock("../../src/utils/time.js", () => ({
+  getLogDateTime: vi.fn(() => "2026-01-01 00:00:00:000"),
 }));
 
-import { fetchUrl } from "../../src/utils/net.js";
+vi.mock("../../src/api/migu_client.js", () => ({
+  refreshMiguToken: vi.fn(),
+}));
+
+import { refreshMiguToken } from "../../src/api/migu_client.js";
 import refreshToken from "../../src/utils/refresh_token.js";
 
-const mockFetchUrl = vi.mocked(fetchUrl);
+const mockRefreshMiguToken = vi.mocked(refreshMiguToken);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -23,38 +25,29 @@ describe("refresh_token", () => {
   it("returns false when userId is empty", async () => {
     const result = await refreshToken("", "someToken");
     expect(result).toBe(false);
-    expect(mockFetchUrl).not.toHaveBeenCalled();
+    expect(mockRefreshMiguToken).not.toHaveBeenCalled();
   });
 
   it("returns false when token is empty", async () => {
     const result = await refreshToken("user123", "");
     expect(result).toBe(false);
-    expect(mockFetchUrl).not.toHaveBeenCalled();
+    expect(mockRefreshMiguToken).not.toHaveBeenCalled();
   });
 
   it("returns true on REFRESH_TOKEN_SUCCESS", async () => {
-    mockFetchUrl.mockResolvedValueOnce({
+    mockRefreshMiguToken.mockResolvedValueOnce({
       resultCode: "REFRESH_TOKEN_SUCCESS",
     });
 
     const result = await refreshToken("user123", "token456");
 
     expect(result).toBe(true);
-    expect(mockFetchUrl).toHaveBeenCalledWith(
-      expect.stringContaining("token_refresh_migu_plus"),
-      expect.objectContaining({
-        method: "post",
-        headers: expect.objectContaining({
-          userId: "user123",
-          userToken: "token456",
-        }),
-      }),
-    );
+    expect(mockRefreshMiguToken).toHaveBeenCalledWith("user123", "token456");
   });
 
   it("returns false on non-success response", async () => {
     vi.spyOn(console, "dir").mockImplementation(() => {});
-    mockFetchUrl.mockResolvedValueOnce({
+    mockRefreshMiguToken.mockResolvedValueOnce({
       resultCode: "FAIL",
     });
 
@@ -62,15 +55,15 @@ describe("refresh_token", () => {
     expect(result).toBe(false);
   });
 
-  it("returns false when fetchUrl returns undefined", async () => {
-    mockFetchUrl.mockResolvedValueOnce(undefined);
+  it("returns false when API returns undefined", async () => {
+    mockRefreshMiguToken.mockResolvedValueOnce(undefined);
 
     const result = await refreshToken("user123", "token456");
     expect(result).toBe(false);
   });
 
   it("returns false on network error", async () => {
-    mockFetchUrl.mockRejectedValueOnce(new Error("network error"));
+    mockRefreshMiguToken.mockRejectedValueOnce(new Error("network error"));
 
     const result = await refreshToken("user123", "token456");
     expect(result).toBe(false);

@@ -1,12 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../../src/utils/net.js", () => ({
-  fetchUrl: vi.fn(),
+vi.mock("../../src/api/migu_client.js", () => ({
+  fetchMiguEpg: vi.fn(),
+}));
+
+vi.mock("../../src/api/cntv_client.js", () => ({
+  fetchCntvEpg: vi.fn(),
+}));
+
+vi.mock("../../src/config.js", () => ({
+  debug: false,
 }));
 
 vi.mock("../../src/utils/time.js", () => ({
   getDateString: vi.fn(() => "20260228"),
   getCompactDateTime: vi.fn(() => "20260228143045"),
+  getLogDateTime: vi.fn(() => "2026-01-01 00:00:00:000"),
 }));
 
 vi.mock("../../src/utils/file_util.js", () => ({
@@ -17,12 +26,14 @@ vi.mock("../../src/utils/static_data.js", () => ({
   cntvNames: { CCTV1综合: "cctv1" } as Record<string, string>,
 }));
 
-import { fetchUrl } from "../../src/utils/net.js";
+import { fetchMiguEpg } from "../../src/api/migu_client.js";
+import { fetchCntvEpg } from "../../src/api/cntv_client.js";
 import { appendFileSync } from "../../src/utils/file_util.js";
 import { updateEpgData } from "../../src/utils/epg.js";
 import type { ChannelInfo } from "../../src/types/index.js";
 
-const mockFetchUrl = vi.mocked(fetchUrl);
+const mockFetchMiguEpg = vi.mocked(fetchMiguEpg);
+const mockFetchCntvEpg = vi.mocked(fetchCntvEpg);
 const mockAppendFileSync = vi.mocked(appendFileSync);
 
 beforeEach(() => {
@@ -44,7 +55,7 @@ describe("epg", () => {
     };
 
     it("fetches migu EPG data for non-CNTV channels", async () => {
-      mockFetchUrl.mockResolvedValueOnce({
+      mockFetchMiguEpg.mockResolvedValueOnce({
         body: {
           program: [
             {
@@ -59,18 +70,14 @@ describe("epg", () => {
       const result = await updateEpgData(miguProgram, "/tmp/epg.xml");
 
       expect(result).toBe(true);
-      expect(mockFetchUrl).toHaveBeenCalledWith(
-        expect.stringContaining("pid001"),
-        {},
-        6000,
-      );
+      expect(mockFetchMiguEpg).toHaveBeenCalledWith("pid001", "20260228", 6000);
       expect(mockAppendFileSync).toHaveBeenCalledTimes(2);
       const channelXml = mockAppendFileSync.mock.calls[0]![1];
       expect(channelXml).toContain('channel id="TestChannel"');
     });
 
     it("fetches cntv EPG data for CCTV channels", async () => {
-      mockFetchUrl.mockResolvedValueOnce({
+      mockFetchCntvEpg.mockResolvedValueOnce({
         cctv1: {
           program: [{ t: "Morning News", st: 1000, et: 1060 }],
         },
@@ -79,15 +86,11 @@ describe("epg", () => {
       const result = await updateEpgData(cntvProgram, "/tmp/epg.xml");
 
       expect(result).toBe(true);
-      expect(mockFetchUrl).toHaveBeenCalledWith(
-        expect.stringContaining("cntv.cn"),
-        {},
-        6000,
-      );
+      expect(mockFetchCntvEpg).toHaveBeenCalledWith("cctv1", "20260228", 6000);
     });
 
     it("returns false when migu EPG data is unavailable", async () => {
-      mockFetchUrl.mockResolvedValueOnce({
+      mockFetchMiguEpg.mockResolvedValueOnce({
         body: { program: [{}] },
       });
 
@@ -95,8 +98,15 @@ describe("epg", () => {
       expect(result).toBe(false);
     });
 
+    it("returns false when migu API returns undefined", async () => {
+      mockFetchMiguEpg.mockResolvedValueOnce(undefined);
+
+      const result = await updateEpgData(miguProgram, "/tmp/epg.xml");
+      expect(result).toBe(false);
+    });
+
     it("returns false when cntv EPG data is unavailable", async () => {
-      mockFetchUrl.mockResolvedValueOnce({
+      mockFetchCntvEpg.mockResolvedValueOnce({
         cctv1: {},
       });
 
@@ -104,8 +114,15 @@ describe("epg", () => {
       expect(result).toBe(false);
     });
 
+    it("returns false when cntv API returns undefined", async () => {
+      mockFetchCntvEpg.mockResolvedValueOnce(undefined);
+
+      const result = await updateEpgData(cntvProgram, "/tmp/epg.xml");
+      expect(result).toBe(false);
+    });
+
     it("escapes XML special characters in content names", async () => {
-      mockFetchUrl.mockResolvedValueOnce({
+      mockFetchMiguEpg.mockResolvedValueOnce({
         body: {
           program: [
             {
@@ -128,13 +145,17 @@ describe("epg", () => {
     });
 
     it("passes custom timeout and timezoneOffsetMs offset", async () => {
-      mockFetchUrl.mockResolvedValueOnce({
+      mockFetchMiguEpg.mockResolvedValueOnce({
         body: { program: [{ content: [] }] },
       });
 
       await updateEpgData(miguProgram, "/tmp/epg.xml", 10000, 28800000);
 
-      expect(mockFetchUrl).toHaveBeenCalledWith(expect.any(String), {}, 10000);
+      expect(mockFetchMiguEpg).toHaveBeenCalledWith(
+        "pid001",
+        "20260228",
+        10000,
+      );
     });
   });
 });

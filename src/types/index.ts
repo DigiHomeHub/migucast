@@ -74,10 +74,10 @@ export interface SaltAndSign {
 }
 
 export interface ApiResponse {
-  rid?: string;
-  resultCode?: string;
-  message?: string;
-  body?: Record<string, unknown>;
+  rid?: string | null;
+  resultCode?: string | null;
+  message?: string | null;
+  body?: Record<string, unknown> | null;
   [key: string]: unknown;
 }
 
