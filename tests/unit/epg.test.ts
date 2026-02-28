@@ -14,12 +14,12 @@ vi.mock("../../src/utils/fileUtil.js", () => ({
 }));
 
 vi.mock("../../src/utils/datas.js", () => ({
-  cntvNames: { "CCTV1综合": "cctv1" } as Record<string, string>,
+  cntvNames: { CCTV1综合: "cctv1" } as Record<string, string>,
 }));
 
 import { fetchUrl } from "../../src/utils/net.js";
 import { appendFileSync } from "../../src/utils/fileUtil.js";
-import { updatePlaybackData } from "../../src/utils/playback.js";
+import { updateEpgData } from "../../src/utils/epg.js";
 import type { ChannelInfo } from "../../src/types/index.js";
 
 const mockFetchUrl = vi.mocked(fetchUrl);
@@ -29,8 +29,8 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("playback", () => {
-  describe("updatePlaybackData", () => {
+describe("epg", () => {
+  describe("updateEpgData", () => {
     const miguProgram: ChannelInfo = {
       pID: "pid001",
       name: "TestChannel",
@@ -43,7 +43,7 @@ describe("playback", () => {
       pics: { highResolutionH: "" },
     };
 
-    it("fetches migu playback data for non-CNTV channels", async () => {
+    it("fetches migu EPG data for non-CNTV channels", async () => {
       mockFetchUrl.mockResolvedValueOnce({
         body: {
           program: [
@@ -56,7 +56,7 @@ describe("playback", () => {
         },
       });
 
-      const result = await updatePlaybackData(miguProgram, "/tmp/playback.xml");
+      const result = await updateEpgData(miguProgram, "/tmp/epg.xml");
 
       expect(result).toBe(true);
       expect(mockFetchUrl).toHaveBeenCalledWith(
@@ -69,16 +69,14 @@ describe("playback", () => {
       expect(channelXml).toContain('channel id="TestChannel"');
     });
 
-    it("fetches cntv playback data for CCTV channels", async () => {
+    it("fetches cntv EPG data for CCTV channels", async () => {
       mockFetchUrl.mockResolvedValueOnce({
         cctv1: {
-          program: [
-            { t: "Morning News", st: 1000, et: 1060 },
-          ],
+          program: [{ t: "Morning News", st: 1000, et: 1060 }],
         },
       });
 
-      const result = await updatePlaybackData(cntvProgram, "/tmp/playback.xml");
+      const result = await updateEpgData(cntvProgram, "/tmp/epg.xml");
 
       expect(result).toBe(true);
       expect(mockFetchUrl).toHaveBeenCalledWith(
@@ -88,21 +86,21 @@ describe("playback", () => {
       );
     });
 
-    it("returns false when migu playback data is unavailable", async () => {
+    it("returns false when migu EPG data is unavailable", async () => {
       mockFetchUrl.mockResolvedValueOnce({
         body: { program: [{}] },
       });
 
-      const result = await updatePlaybackData(miguProgram, "/tmp/playback.xml");
+      const result = await updateEpgData(miguProgram, "/tmp/epg.xml");
       expect(result).toBe(false);
     });
 
-    it("returns false when cntv playback data is unavailable", async () => {
+    it("returns false when cntv EPG data is unavailable", async () => {
       mockFetchUrl.mockResolvedValueOnce({
         cctv1: {},
       });
 
-      const result = await updatePlaybackData(cntvProgram, "/tmp/playback.xml");
+      const result = await updateEpgData(cntvProgram, "/tmp/epg.xml");
       expect(result).toBe(false);
     });
 
@@ -112,14 +110,18 @@ describe("playback", () => {
           program: [
             {
               content: [
-                { contName: "Tom & Jerry <Live>", startTime: 1000000, endTime: 1003600 },
+                {
+                  contName: "Tom & Jerry <Live>",
+                  startTime: 1000000,
+                  endTime: 1003600,
+                },
               ],
             },
           ],
         },
       });
 
-      await updatePlaybackData(miguProgram, "/tmp/playback.xml");
+      await updateEpgData(miguProgram, "/tmp/epg.xml");
 
       const programXml = mockAppendFileSync.mock.calls[1]![1];
       expect(programXml).toContain("Tom &amp; Jerry &lt;Live&gt;");
@@ -130,13 +132,9 @@ describe("playback", () => {
         body: { program: [{ content: [] }] },
       });
 
-      await updatePlaybackData(miguProgram, "/tmp/playback.xml", 10000, 28800000);
+      await updateEpgData(miguProgram, "/tmp/epg.xml", 10000, 28800000);
 
-      expect(mockFetchUrl).toHaveBeenCalledWith(
-        expect.any(String),
-        {},
-        10000,
-      );
+      expect(mockFetchUrl).toHaveBeenCalledWith(expect.any(String), {}, 10000);
     });
   });
 });

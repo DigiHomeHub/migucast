@@ -43,7 +43,11 @@ import {
   getAndroidURL720p,
   get302URL,
 } from "../../src/utils/androidURL.js";
-import { interfaceStr, channel, channelCache } from "../../src/utils/appUtils.js";
+import {
+  interfaceStr,
+  channel,
+  channelCache,
+} from "../../src/utils/appUtils.js";
 import type { IncomingHttpHeaders } from "node:http";
 
 const mockReadFileSync = vi.mocked(readFileSync);
@@ -60,7 +64,12 @@ describe("appUtils", () => {
     const defaultHeaders: IncomingHttpHeaders = { host: "localhost:1234" };
 
     it("reads and returns interface.txt for root URL", () => {
-      const result = interfaceStr("/", defaultHeaders, "defaultUser", "defaultToken");
+      const result = interfaceStr(
+        "/",
+        defaultHeaders,
+        "defaultUser",
+        "defaultToken",
+      );
 
       expect(mockReadFileSync).toHaveBeenCalled();
       expect(result.contentType).toBe("text/plain;charset=UTF-8");
@@ -68,31 +77,58 @@ describe("appUtils", () => {
     });
 
     it("replaces ${replace} with host header", () => {
-      mockReadFileSync.mockReturnValueOnce(Buffer.from("stream ${replace}/video"));
+      mockReadFileSync.mockReturnValueOnce(
+        Buffer.from("stream ${replace}/video"),
+      );
 
-      const result = interfaceStr("/", defaultHeaders, "defaultUser", "defaultToken");
+      const result = interfaceStr(
+        "/",
+        defaultHeaders,
+        "defaultUser",
+        "defaultToken",
+      );
       expect(String(result.content)).toBe("stream http://localhost:1234/video");
     });
 
-    it("returns XML content type for /playback.xml", () => {
-      const result = interfaceStr("/playback.xml", defaultHeaders, "defaultUser", "defaultToken");
+    it("returns XML content type for /epg.xml", () => {
+      const result = interfaceStr(
+        "/epg.xml",
+        defaultHeaders,
+        "defaultUser",
+        "defaultToken",
+      );
       expect(result.contentType).toBe("text/xml;charset=UTF-8");
     });
 
     it("returns m3u content type for /m3u", () => {
-      const result = interfaceStr("/m3u", defaultHeaders, "defaultUser", "defaultToken");
+      const result = interfaceStr(
+        "/m3u",
+        defaultHeaders,
+        "defaultUser",
+        "defaultToken",
+      );
       expect(result.contentType).toBe("audio/x-mpegurl; charset=utf-8");
     });
 
     it("returns txt file for /txt", () => {
-      const result = interfaceStr("/txt", defaultHeaders, "defaultUser", "defaultToken");
+      const result = interfaceStr(
+        "/txt",
+        defaultHeaders,
+        "defaultUser",
+        "defaultToken",
+      );
       expect(result.contentType).toBe("text/plain;charset=UTF-8");
     });
 
     it("appends user credentials to replace host when different from defaults", () => {
       mockReadFileSync.mockReturnValueOnce(Buffer.from("url ${replace}/ch"));
 
-      const result = interfaceStr("/", defaultHeaders, "otherUser", "otherToken");
+      const result = interfaceStr(
+        "/",
+        defaultHeaders,
+        "otherUser",
+        "otherToken",
+      );
       expect(String(result.content)).toContain("otherUser");
       expect(String(result.content)).toContain("otherToken");
     });
@@ -103,7 +139,12 @@ describe("appUtils", () => {
         throw new Error("file not found");
       });
 
-      const result = interfaceStr("/", defaultHeaders, "defaultUser", "defaultToken");
+      const result = interfaceStr(
+        "/",
+        defaultHeaders,
+        "defaultUser",
+        "defaultToken",
+      );
       expect(result.content).toBeNull();
     });
   });
@@ -145,7 +186,12 @@ describe("appUtils", () => {
 
       const result = await channel("/200001", "user1", "token1");
 
-      expect(mockGetAndroidURL).toHaveBeenCalledWith("user1", "token1", "200001", 3);
+      expect(mockGetAndroidURL).toHaveBeenCalledWith(
+        "user1",
+        "token1",
+        "200001",
+        3,
+      );
       expect(result.code).toBe(302);
     });
 

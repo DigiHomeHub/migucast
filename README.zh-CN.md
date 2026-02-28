@@ -93,7 +93,7 @@ set mport=3000 && set mhost="http://localhost:3000" && pnpm start
 | `GET /` 或 `GET /interface.txt` | M3U 播放列表       |
 | `GET /txt`                      | 纯文本频道列表     |
 | `GET /m3u`                      | M3U 文件下载       |
-| `GET /playback.xml`             | XMLTV EPG 数据     |
+| `GET /epg.xml`                  | XMLTV EPG 数据     |
 | `GET /:channelId`               | 302 重定向到直播流 |
 
 设置 `mpass` 后，所有路径需添加密码前缀：`GET /:pass/...`
@@ -160,6 +160,17 @@ docker run -d -p 1234:1234 --name migucast migucast
 - **测试：** Vitest + v8 覆盖率
 - **代码规范：** ESLint + Prettier
 - **构建：** `tsc` 编译输出到 `dist/`
+
+### Pre-commit hooks
+
+[Husky](https://typicode.github.io/husky/) 会在每次提交前自动执行以下检查，与 CI 流水线一致：
+
+- **lint-staged**：对暂存的 `.ts` 文件执行 `eslint --fix` 和 `prettier --write`
+- **typecheck**：`tsc --noEmit`
+- **test**：`vitest run`
+- **build**：`tsc -p tsconfig.build.json`
+
+执行 `pnpm install` 时会通过 `prepare` 脚本自动安装 hooks。
 
 ### 常用命令
 

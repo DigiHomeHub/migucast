@@ -13,7 +13,7 @@ import {
   renameFileSync,
   writeFile,
 } from "./fileUtil.js";
-import { updatePlaybackData } from "./playback.js";
+import { updateEpgData } from "./epg.js";
 import { host, token, userId } from "../config.js";
 import refreshToken from "./refreshToken.js";
 import { printGreen, printRed, printYellow } from "./colorOut.js";
@@ -47,13 +47,13 @@ async function updateTV(hours: number): Promise<void> {
 
   appendFile(
     interfacePath,
-    `#EXTM3U x-tvg-url="\${replace}/playback.xml" catchup="append" catchup-source="?playbackbegin=\${(b)yyyyMMddHHmmss}&playbackend=\${(e)yyyyMMddHHmmss}"\n`,
+    `#EXTM3U x-tvg-url="\${replace}/epg.xml" catchup="append" catchup-source="?playbackbegin=\${(b)yyyyMMddHHmmss}&playbackend=\${(e)yyyyMMddHHmmss}"\n`,
   );
   printYellow("Updating TV...");
 
-  const playbackFile = `${process.cwd()}/playback.xml.bak`;
+  const epgFile = `${process.cwd()}/epg.xml.bak`;
   writeFile(
-    playbackFile,
+    epgFile,
     `<?xml version="1.0" encoding="UTF-8"?>\n` +
       `<tv generator-info-name="Tak" generator-info-url="${host}">\n`,
   );
@@ -63,7 +63,7 @@ async function updateTV(hours: number): Promise<void> {
     appendFile(interfaceTXTPath, `${datas[i]!.name},#genre#\n`);
     for (let j = 0; j < data.length; j++) {
       const item = data[j]!;
-      await updatePlaybackData(item, playbackFile);
+      await updateEpgData(item, epgFile);
       appendFile(
         interfacePath,
         `#EXTINF:-1 tvg-id="${item.name}" tvg-name="${item.name}" tvg-logo="${item.pics.highResolutionH}" group-title="${datas[i]!.name}",${item.name}\n\${replace}/${item.pID}\n`,
@@ -73,8 +73,8 @@ async function updateTV(hours: number): Promise<void> {
     printGreen(`Category ###: ${datas[i]!.name} updated!`);
   }
 
-  appendFileSync(playbackFile, `</tv>\n`);
-  renameFileSync(playbackFile, playbackFile.replace(".bak", ""));
+  appendFileSync(epgFile, `</tv>\n`);
+  renameFileSync(epgFile, epgFile.replace(".bak", ""));
   renameFileSync(interfacePath, interfacePath.replace(".bak", ""));
   renameFileSync(interfaceTXTPath, interfaceTXTPath.replace(".bak", ""));
   printGreen("TV update completed!");

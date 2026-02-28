@@ -1,6 +1,6 @@
 /**
  * Electronic Program Guide (EPG) data fetcher and XMLTV writer.
- * Retrieves playback schedules from two sources:
+ * Retrieves EPG schedules from two sources:
  *   - Migu's own EPG API (for most channels)
  *   - CNTV's public EPG API (for CCTV-branded channels)
  * Outputs XMLTV-formatted `<channel>` and `<programme>` elements to a file.
@@ -11,31 +11,31 @@ import { cntvNames } from "./datas.js";
 import { fetchUrl } from "./net.js";
 import type { ChannelInfo } from "../types/index.js";
 
-interface PlaybackItem {
+interface EpgItem {
   contName: string;
   startTime: number;
   endTime: number;
 }
 
-interface CntvPlaybackItem {
+interface CntvEpgItem {
   t: string;
   st: number;
   et: number;
 }
 
 /** Fetches today's program schedule from the Migu EPG API for a given program ID. */
-async function getPlaybackData(
+async function fetchMiguEpg(
   programId: string,
   timeout: number = 6000,
   githubAnd8: number = 0,
-): Promise<PlaybackItem[] | undefined> {
+): Promise<EpgItem[] | undefined> {
   const date = new Date(Date.now() + githubAnd8);
   const today = getDateString(date);
   const resp = (await fetchUrl(
     `https://program-sc.miguvideo.com/live/v2/tv-programs-data/${programId}/${today}`,
     {},
     timeout,
-  )) as { body?: { program?: Array<{ content?: PlaybackItem[] }> } };
+  )) as { body?: { program?: Array<{ content?: EpgItem[] }> } };
   return resp.body?.program?.[0]?.content;
 }
 
@@ -50,14 +50,14 @@ function escapeXml(str: string): string {
 }
 
 /** Writes XMLTV channel and programme entries from Migu EPG data. */
-async function updatePlaybackDataByMigu(
+async function writeEpgFromMigu(
   program: ChannelInfo,
   filePath: string,
   timeout: number = 6000,
   githubAnd8: number = 0,
 ): Promise<boolean> {
-  const playbackData = await getPlaybackData(program.pID, timeout, githubAnd8);
-  if (!playbackData) {
+  const epgData = await fetchMiguEpg(program.pID, timeout, githubAnd8);
+  if (!epgData) {
     return false;
   }
 
@@ -68,8 +68,8 @@ async function updatePlaybackDataByMigu(
       `    </channel>\n`,
   );
 
-  for (let i = 0; i < playbackData.length; i++) {
-    const item = playbackData[i]!;
+  for (let i = 0; i < epgData.length; i++) {
+    const item = epgData[i]!;
     const contName = escapeXml(item.contName);
     appendFileSync(
       filePath,
@@ -82,7 +82,7 @@ async function updatePlaybackDataByMigu(
 }
 
 /** Writes XMLTV channel and programme entries from CNTV EPG data (CCTV channels only). */
-async function updatePlaybackDataByCntv(
+async function writeEpgFromCntv(
   program: ChannelInfo,
   filePath: string,
   timeout: number = 6000,
@@ -97,10 +97,10 @@ async function updatePlaybackDataByCntv(
     `https://api.cntv.cn/epg/epginfo3?serviceId=shiyi&d=${today}&c=${cntvName}`,
     {},
     timeout,
-  )) as Record<string, { program?: CntvPlaybackItem[] }>;
+  )) as Record<string, { program?: CntvEpgItem[] }>;
 
-  const playbackData = resp[cntvName]?.program;
-  if (!playbackData) {
+  const epgData = resp[cntvName]?.program;
+  if (!epgData) {
     return false;
   }
 
@@ -111,8 +111,8 @@ async function updatePlaybackDataByCntv(
       `    </channel>\n`,
   );
 
-  for (let i = 0; i < playbackData.length; i++) {
-    const item = playbackData[i]!;
+  for (let i = 0; i < epgData.length; i++) {
+    const item = epgData[i]!;
     const contName = escapeXml(item.t);
     appendFileSync(
       filePath,
@@ -125,16 +125,16 @@ async function updatePlaybackDataByCntv(
 }
 
 /** Routes to the appropriate EPG source (CNTV for CCTV channels, Migu for all others). */
-async function updatePlaybackData(
+async function updateEpgData(
   program: ChannelInfo,
   filePath: string,
   timeout: number = 6000,
   githubAnd8: number = 0,
 ): Promise<boolean> {
   if (cntvNames[program.name]) {
-    return updatePlaybackDataByCntv(program, filePath, timeout, githubAnd8);
+    return writeEpgFromCntv(program, filePath, timeout, githubAnd8);
   }
-  return updatePlaybackDataByMigu(program, filePath, timeout, githubAnd8);
+  return writeEpgFromMigu(program, filePath, timeout, githubAnd8);
 }
 
-export { updatePlaybackData };
+export { updateEpgData };
