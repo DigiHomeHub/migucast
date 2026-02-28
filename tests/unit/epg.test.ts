@@ -49,7 +49,7 @@ describe("epg", () => {
           program: [
             {
               content: [
-                { programName: "News", startTime: 1000000, endTime: 1003600 },
+                { contName: "News", startTime: 1000000, endTime: 1003600 },
               ],
             },
           ],
@@ -111,7 +111,7 @@ describe("epg", () => {
             {
               content: [
                 {
-                  programName: "Tom & Jerry <Live>",
+                  contName: "Tom & Jerry <Live>",
                   startTime: 1000000,
                   endTime: 1003600,
                 },
