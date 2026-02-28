@@ -8,6 +8,7 @@ export default defineConfig({
     exclude: ["tests/smoke/**"],
     coverage: {
       provider: "v8",
+      reporter: ["text", "lcov"],
       include: ["src/**/*.ts"],
       exclude: ["src/types/**"],
       thresholds: {
