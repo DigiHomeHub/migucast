@@ -67,6 +67,9 @@ docker run -d -p 1234:1234 --name migucast ghcr.io/digihomehub/migucast:latest
 | `menableH265`     | `true`  | boolean | 请求 H.265 编码（部分浏览器可能无法正常播放）              |
 | `mdebug`          | `false` | boolean | 开启详细调试日志                                           |
 | `mupdateInterval` | `6`     | number  | 频道数据刷新间隔（单位：小时）                             |
+| `mdataDir`        |         | string  | 数据输出目录（播放列表、EPG 等），默认为 `cwd()`           |
+| `mlogLevel`       | `"info"`| string  | 日志级别：`silly`、`trace`、`debug`、`info`、`warn`、`error`、`fatal` |
+| `mlogFile`        |         | string  | 日志文件路径，设置 `mdataDir` 时默认为 `<mdataDir>/migucast.log` |
 
 > 蓝光及以上画质需要登录且拥有 VIP 会员。
 
