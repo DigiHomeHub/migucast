@@ -1,0 +1,8 @@
+.cursor/
+.serena/
+node_modules/
+dist/
+*.tsbuildinfo
+.pnpm-approve-builds.json
+.pnpm-store/
+coverage/
