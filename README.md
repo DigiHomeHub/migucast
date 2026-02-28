@@ -67,6 +67,9 @@ All settings are read from environment variables. Defaults work out of the box f
 | `menableH265`     | `true`  | boolean | Request H.265 codec (may cause playback issues in some browsers) |
 | `mdebug`          | `false` | boolean | Enable verbose debug logging                                     |
 | `mupdateInterval` | `6`     | number  | Channel data refresh interval in hours                           |
+| `mdataDir`        |         | string  | Data output directory for playlists and EPG; defaults to `cwd()` |
+| `mlogLevel`       | `"info"`| string  | Log level: `silly`, `trace`, `debug`, `info`, `warn`, `error`, `fatal` |
+| `mlogFile`        |         | string  | Log file path; defaults to `<mdataDir>/migucast.log` when `mdataDir` is set |
 
 > FHD and above require a logged-in account with an active VIP subscription.
 
