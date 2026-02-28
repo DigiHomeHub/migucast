@@ -93,7 +93,7 @@ set mport=3000 && set mhost="http://localhost:3000" && pnpm start
 | `GET /` or `GET /interface.txt` | M3U playlist                   |
 | `GET /txt`                      | Plain-text channel list        |
 | `GET /m3u`                      | M3U file download (attachment) |
-| `GET /playback.xml`             | XMLTV EPG data                 |
+| `GET /epg.xml`                  | XMLTV EPG data                 |
 | `GET /:channelId`               | 302 redirect to live stream    |
 
 When `mpass` is set, prefix all paths with the password: `GET /:pass/...`
@@ -160,6 +160,17 @@ docker run -d -p 1234:1234 --name migucast migucast
 - **Testing:** Vitest with v8 coverage
 - **Linting:** ESLint + Prettier
 - **Build:** `tsc` to `dist/`
+
+### Pre-commit hooks
+
+[Husky](https://typicode.github.io/husky/) runs the following checks before every commit — identical to the CI pipeline:
+
+- **lint-staged**: `eslint --fix` and `prettier --write` on staged `.ts` files
+- **typecheck**: `tsc --noEmit`
+- **test**: `vitest run`
+- **build**: `tsc -p tsconfig.build.json`
+
+Hooks are installed automatically via `pnpm install` (the `prepare` script).
 
 ### Commands
 
