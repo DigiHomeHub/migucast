@@ -4,14 +4,14 @@
  * repository, decrypts each stream URL, validates against a domain whitelist,
  * and produces M3U + TXT playlist files.
  */
-import { printGreen, printMagenta, printRed } from "./colorOut.js";
+import { printGreen, printMagenta, printRed } from "./color_out.js";
 import crypto from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
 import { debug } from "../config.js";
-import { domainWhiteList, repoLinkUpdateTimestamp } from "./datas.js";
-import { readFileSync } from "./fileUtil.js";
-import type { ZbproChannel, ZbproURLResult } from "../types/index.js";
+import { domainWhiteList, repoLinkUpdateTimestamp } from "./static_data.js";
+import { readFileSync } from "./file_util.js";
+import type { ZbproChannel, ZbproUrlResult } from "../types/index.js";
 
 const KEY_ARRAY = [
   121, 111, 117, 33, 106, 101, 64, 49, 57, 114, 114, 36, 50, 48, 121, 35,
@@ -21,7 +21,7 @@ const IV_ARRAY = [
 ];
 
 /** Decrypts a base64-encoded AES-128-CBC ciphertext using the zbpro fixed key and IV. */
-function AESdecrypt(
+function aesDecrypt(
   baseData: string,
   keyArray: number[] = KEY_ARRAY,
   ivArray: number[] = IV_ARRAY,
@@ -54,7 +54,7 @@ interface DomainEntry {
  * Fetches, decompresses, and decrypts the remote channel list.
  * Returns M3U + TXT content on success, or a numeric status code on failure/skip.
  */
-async function getAllURL(): Promise<ZbproURLResult | number> {
+async function getAllURL(): Promise<ZbproUrlResult | number> {
   const channelsURLM3U: string[] = [];
   const channelsURLTXT: string[] = [];
   const domains: Record<string, DomainEntry> = {};
@@ -112,7 +112,7 @@ async function getAllURL(): Promise<ZbproURLResult | number> {
 
         for (const url of channel.urls ?? []) {
           i += 1;
-          let decryptURL = AESdecrypt(url);
+          let decryptURL = aesDecrypt(url);
           if (decryptURL.startsWith("sys_http")) {
             decryptURL = decryptURL.replace("sys_", "");
           }

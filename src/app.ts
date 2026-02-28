@@ -13,16 +13,16 @@ import {
   token,
   userId,
 } from "./config.js";
-import { getDateTimeStr } from "./utils/time.js";
-import update from "./utils/updateData.js";
+import { getReadableDateTime } from "./utils/time.js";
+import { updatePlaylistData } from "./utils/update_data.js";
 import {
   printBlue,
   printGreen,
   printMagenta,
   printRed,
-} from "./utils/colorOut.js";
-import { delay } from "./utils/fetchList.js";
-import { channel, interfaceStr } from "./utils/appUtils.js";
+} from "./utils/color_out.js";
+import { delay } from "./utils/channel_list.js";
+import { channel, servePlaylist } from "./utils/request_handler.js";
 
 let hours = 0;
 let loading = false;
@@ -98,7 +98,7 @@ const server = http.createServer((req, res) => {
     const interfaceList = "/,/interface.txt,/m3u,/txt,/epg.xml";
 
     if (interfaceList.indexOf(url) !== -1) {
-      const interfaceObj = interfaceStr(url, headers, urlUserId, urlToken);
+      const interfaceObj = servePlaylist(url, headers, urlUserId, urlToken);
       if (interfaceObj.content === null) {
         interfaceObj.content = "Fetch failed";
       }
@@ -129,7 +129,7 @@ const server = http.createServer((req, res) => {
 
     res.writeHead(result.code, {
       "Content-Type": "application/json;charset=UTF-8",
-      location: result.playURL,
+      location: result.playUrl,
     });
     res.end();
     loading = false;
@@ -142,10 +142,10 @@ server.listen(port, () => {
   setInterval(
     () => {
       void (async () => {
-        printBlue(`Preparing file update ${getDateTimeStr(new Date())}`);
+        printBlue(`Preparing file update ${getReadableDateTime(new Date())}`);
         hours += updateInterval;
         try {
-          await update(hours);
+          await updatePlaylistData(hours);
         } catch (error) {
           console.log(error);
           printRed("Update failed");
@@ -158,7 +158,7 @@ server.listen(port, () => {
 
   void (async () => {
     try {
-      await update(hours);
+      await updatePlaylistData(hours);
     } catch (error) {
       console.log(error);
       printRed("Update failed");

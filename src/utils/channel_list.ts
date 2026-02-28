@@ -15,13 +15,13 @@ function delay(ms: number): Promise<void> {
 
 interface LiveItem {
   name: string;
-  vomsID: string;
+  vomsId: string;
   dataList: Record<string, unknown>[];
   [key: string]: unknown;
 }
 
 /** Fetches top-level live TV categories, removes "热门", and sorts CCTV to the front. */
-async function cateList(): Promise<LiveItem[]> {
+async function fetchCategories(): Promise<LiveItem[]> {
   const resp = (await fetchUrl(
     "https://program-sc.miguvideo.com/live/v2/tv-data/1ff892f2b5ab4a79be6e25b69d2f5d05",
   )) as { body: { liveList: LiveItem[] } };
@@ -39,13 +39,13 @@ async function cateList(): Promise<LiveItem[]> {
 }
 
 /** Fetches full channel data for every category and deduplicates across categories. */
-async function dataList(): Promise<CategoryData[]> {
-  const cates = (await cateList()) as CategoryData[];
+async function fetchCategoryChannels(): Promise<CategoryData[]> {
+  const cates = (await fetchCategories()) as CategoryData[];
 
   for (let i = 0; i < cates.length; i++) {
     try {
       const resp = (await fetchUrl(
-        "https://program-sc.miguvideo.com/live/v2/tv-data/" + cates[i]!.vomsID,
+        "https://program-sc.miguvideo.com/live/v2/tv-data/" + cates[i]!.vomsId,
       )) as { body: { dataList: CategoryData["dataList"] } };
       cates[i]!.dataList = resp.body.dataList;
     } catch {
@@ -105,4 +105,4 @@ function uniqueData(liveList: CategoryData[]): CategoryData[] {
   return liveList;
 }
 
-export { cateList, dataList, delay };
+export { fetchCategories, fetchCategoryChannels, delay };

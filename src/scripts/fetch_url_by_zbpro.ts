@@ -3,11 +3,11 @@
  * and regenerates XMLTV EPG data from Migu/CNTV.
  * Designed for GitHub Actions or similar CI environments (runs every 6 hours).
  */
-import { printGreen, printMagenta, printRed } from "../utils/colorOut.js";
-import { appendFileSync, renameFileSync } from "../utils/fileUtil.js";
+import { printGreen, printMagenta, printRed } from "../utils/color_out.js";
+import { appendFileSync, renameFileSync } from "../utils/file_util.js";
 import { updateEpgData } from "../utils/epg.js";
 import { writeFileSync } from "node:fs";
-import { dataList } from "../utils/fetchList.js";
+import { fetchCategoryChannels } from "../utils/channel_list.js";
 import updateChannels from "../utils/zbpro.js";
 
 const start = new Date();
@@ -38,7 +38,7 @@ switch (updateResult) {
 }
 
 if (!(start.getHours() % 6)) {
-  const datas = await dataList();
+  const datas = await fetchCategoryChannels();
   printGreen("Data fetched successfully!");
 
   try {

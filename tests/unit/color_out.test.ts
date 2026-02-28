@@ -16,13 +16,13 @@ import {
   printMagenta,
   printGrey,
   printDebug,
-} from "../../src/utils/colorOut.js";
+} from "../../src/utils/color_out.js";
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("colorOut", () => {
+describe("color_out", () => {
   describe("basePrint color functions", () => {
     it("printRed outputs with red ANSI code", () => {
       const spy = vi.spyOn(console, "log").mockImplementation(() => {});

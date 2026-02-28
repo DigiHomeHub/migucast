@@ -9,7 +9,7 @@ vi.mock("../../src/utils/time.js", () => ({
   getLogDateTime: vi.fn(() => "2026-01-01 00:00:00:000"),
 }));
 
-import { getLocalIPv, fetchUrl } from "../../src/utils/net.js";
+import { getLocalIpAddresses, fetchUrl } from "../../src/utils/net.js";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -20,7 +20,7 @@ afterEach(() => {
 });
 
 describe("net", () => {
-  describe("getLocalIPv", () => {
+  describe("getLocalIpAddresses", () => {
     it("returns IPv4 addresses by default", () => {
       vi.spyOn(os, "networkInterfaces").mockReturnValue({
         en0: [
@@ -44,7 +44,7 @@ describe("net", () => {
         ],
       });
 
-      const ips = getLocalIPv();
+      const ips = getLocalIpAddresses();
       expect(ips).toEqual(["192.168.1.100"]);
     });
 
@@ -71,20 +71,20 @@ describe("net", () => {
         ],
       });
 
-      const ips = getLocalIPv(6);
+      const ips = getLocalIpAddresses(6);
       expect(ips).toEqual(["fe80::1"]);
     });
 
     it("returns empty array when no interfaces match", () => {
       vi.spyOn(os, "networkInterfaces").mockReturnValue({});
-      expect(getLocalIPv()).toEqual([]);
+      expect(getLocalIpAddresses()).toEqual([]);
     });
 
     it("handles undefined interface entries", () => {
       vi.spyOn(os, "networkInterfaces").mockReturnValue({
         lo0: undefined,
       } as ReturnType<typeof os.networkInterfaces>);
-      expect(getLocalIPv()).toEqual([]);
+      expect(getLocalIpAddresses()).toEqual([]);
     });
   });
 
@@ -101,7 +101,9 @@ describe("net", () => {
 
     it("returns undefined on network error", async () => {
       vi.spyOn(console, "log").mockImplementation(() => {});
-      vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("network error"));
+      vi.spyOn(globalThis, "fetch").mockRejectedValue(
+        new Error("network error"),
+      );
 
       const result = await fetchUrl("https://example.com/fail");
       expect(result).toBeUndefined();

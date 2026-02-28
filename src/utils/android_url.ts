@@ -4,21 +4,21 @@
  * automatic quality downgrade on membership restrictions, ddCalcu URL signing,
  * and retry logic for 302 Location header extraction.
  */
-import { getStringMD5 } from "./EncryUtils.js";
-import { getddCalcuURL, getddCalcuURL720p } from "./ddCalcuURL.js";
-import { printDebug, printGreen, printRed, printYellow } from "./colorOut.js";
+import { getStringMd5 } from "./crypto_utils.js";
+import { getDdCalcuUrl, getDdCalcuUrl720p } from "./dd_calcu_url.js";
+import { printDebug, printGreen, printRed, printYellow } from "./color_out.js";
 import { fetchUrl } from "./net.js";
-import { enableH265, enableHDR } from "../config.js";
-import { delay } from "./fetchList.js";
-import type { AndroidURLResult, SaltSign } from "../types/index.js";
+import { enableH265, enableHdr } from "../config.js";
+import { delay } from "./channel_list.js";
+import type { AndroidUrlResult, SaltAndSign } from "../types/index.js";
 
-const client_id = getStringMD5(Date.now().toString());
+const clientId = getStringMd5(Date.now().toString());
 
 /** Derives a fixed salt and HMAC-style sign from the given MD5 hash for API authentication. */
-function getSaltAndSign(md5: string): SaltSign {
+function getSaltAndSign(md5: string): SaltAndSign {
   const salt = 1230024;
   const suffix = "3ce941cc3cbc40528bfd1c64f9fdf6c0migu0123";
-  const sign = getStringMD5(md5 + suffix);
+  const sign = getStringMd5(md5 + suffix);
   return { salt, sign };
 }
 
@@ -26,17 +26,17 @@ function getSaltAndSign(md5: string): SaltSign {
  * Fetches a signed playback URL via the Migu Android API with user credentials.
  * Automatically retries at lower quality tiers when the server responds with TIPS_NEED_MEMBER.
  */
-async function getAndroidURL(
+async function getAndroidUrl(
   userId: string,
   token: string,
   pid: string,
   rateType: number,
-): Promise<AndroidURLResult> {
+): Promise<AndroidUrlResult> {
   if (rateType <= 1) {
     return { url: "", rateType: 0, content: null };
   }
 
-  const timestramp = Date.now();
+  const timestamp = Date.now();
   const appVersion = "26000370";
   const headers: Record<string, string | number> = {
     AppVersion: 2600037000,
@@ -53,20 +53,20 @@ async function getAndroidURL(
     headers.UserToken = token;
   }
 
-  const str = timestramp + pid + appVersion;
-  const md5 = getStringMD5(str);
+  const str = timestamp + pid + appVersion;
+  const md5 = getStringMd5(str);
   const result = getSaltAndSign(md5);
 
-  let enableHDRStr = "";
-  if (enableHDR) {
-    enableHDRStr = "&4kvivid=true&2Kvivid=true&vivid=2";
+  let hdrQueryParam = "";
+  if (enableHdr) {
+    hdrQueryParam = "&4kvivid=true&2Kvivid=true&vivid=2";
   }
-  let enableH265Str = "";
+  let h265QueryParam = "";
   if (enableH265) {
-    enableH265Str = "&h265N=true";
+    h265QueryParam = "&h265N=true";
   }
 
-  const baseURL = "https://play.miguvideo.com/playurl/v1/play/playurl";
+  const baseUrl = "https://play.miguvideo.com/playurl/v1/play/playurl";
   let params =
     "?sign=" +
     result.sign +
@@ -75,16 +75,16 @@ async function getAndroidURL(
     "&contId=" +
     pid +
     "&timestamp=" +
-    timestramp +
+    timestamp +
     "&salt=" +
     result.salt +
     "&flvEnable=true&super4k=true" +
     (rateType === 9 ? "&ott=true" : "") +
-    enableH265Str +
-    enableHDRStr;
+    h265QueryParam +
+    hdrQueryParam;
 
-  printDebug(`Request URL: ${baseURL + params}`);
-  let respData = (await fetchUrl(baseURL + params, {
+  printDebug(`Request URL: ${baseUrl + params}`);
+  let respData = (await fetchUrl(baseUrl + params, {
     headers: headers as Record<string, string>,
   })) as Record<string, unknown>;
   printDebug(respData);
@@ -102,14 +102,14 @@ async function getAndroidURL(
       "&contId=" +
       pid +
       "&timestamp=" +
-      timestramp +
+      timestamp +
       "&salt=" +
       result.salt +
       "&flvEnable=true&super4k=true" +
-      enableH265Str +
-      enableHDRStr;
-    printDebug(`Request URL: ${baseURL + params}`);
-    respData = (await fetchUrl(baseURL + params, {
+      h265QueryParam +
+      hdrQueryParam;
+    printDebug(`Request URL: ${baseUrl + params}`);
+    respData = (await fetchUrl(baseUrl + params, {
       headers: headers as Record<string, string>,
     })) as Record<string, unknown>;
 
@@ -122,14 +122,14 @@ async function getAndroidURL(
         "&contId=" +
         pid +
         "&timestamp=" +
-        timestramp +
+        timestamp +
         "&salt=" +
         result.salt +
         "&flvEnable=true&super4k=true" +
-        enableH265Str +
-        enableHDRStr;
-      printDebug(`Request URL: ${baseURL + params}`);
-      respData = (await fetchUrl(baseURL + params, {
+        h265QueryParam +
+        hdrQueryParam;
+      printDebug(`Request URL: ${baseUrl + params}`);
+      respData = (await fetchUrl(baseUrl + params, {
         headers: headers as Record<string, string>,
       })) as Record<string, unknown>;
     }
@@ -147,51 +147,51 @@ async function getAndroidURL(
   const content = body?.content as Record<string, unknown> | undefined;
   pid = (content?.contId as string) ?? pid;
 
-  const resURL = getddCalcuURL(url, pid, "android", rateType, userId);
+  const resUrl = getDdCalcuUrl(url, pid, "android", rateType, userId);
   const finalRateType = urlInfo?.rateType as string | undefined;
 
   return {
-    url: resURL,
+    url: resUrl,
     rateType: parseInt(finalRateType ?? "0"),
     content: respData,
   };
 }
 
 /** Fetches a 720p playback URL without user credentials (anonymous access). */
-async function getAndroidURL720p(pid: string): Promise<AndroidURLResult> {
-  const timestramp = Math.round(Date.now()).toString();
+async function getAndroidUrl720p(pid: string): Promise<AndroidUrlResult> {
+  const timestamp = Math.round(Date.now()).toString();
   const appVersion = "2600034600";
-  const appVersionID = appVersion + "-99000-201600010010028";
+  const appVersionId = appVersion + "-99000-201600010010028";
   const headers: Record<string, string> = {
     AppVersion: appVersion,
     TerminalId: "android",
-    "X-UP-CLIENT-CHANNEL-ID": appVersionID,
-    ClientId: client_id,
+    "X-UP-CLIENT-CHANNEL-ID": appVersionId,
+    ClientId: clientId,
   };
 
-  printDebug("client_id: " + client_id);
+  printDebug("clientId: " + clientId);
   if (pid !== "641886683" && pid !== "641886773") {
     headers["appCode"] = "miguvideo_default_android";
   }
 
-  const str = timestramp + pid + appVersion.substring(0, 8);
-  const md5 = getStringMD5(str);
+  const str = timestamp + pid + appVersion.substring(0, 8);
+  const md5 = getStringMd5(str);
 
   const salt =
     String(Math.floor(Math.random() * 1000000)).padStart(6, "0") + "25";
   const suffix = "2cac4f2c6c3346a5b34e085725ef7e33migu" + salt.substring(0, 4);
-  const sign = getStringMD5(md5 + suffix);
+  const sign = getStringMd5(md5 + suffix);
 
-  let enableHDRStr = "";
-  if (enableHDR) {
-    enableHDRStr = "&4kvivid=true&2Kvivid=true&vivid=2";
+  let hdrQueryParam = "";
+  if (enableHdr) {
+    hdrQueryParam = "&4kvivid=true&2Kvivid=true&vivid=2";
   }
-  let enableH265Str = "";
+  let h265QueryParam = "";
   if (enableH265) {
-    enableH265Str = "&h265N=true";
+    h265QueryParam = "&h265N=true";
   }
 
-  const baseURL = "https://play.miguvideo.com/playurl/v1/play/playurl";
+  const baseUrl = "https://play.miguvideo.com/playurl/v1/play/playurl";
   const params =
     "?sign=" +
     sign +
@@ -199,16 +199,16 @@ async function getAndroidURL720p(pid: string): Promise<AndroidURLResult> {
     "&contId=" +
     pid +
     "&timestamp=" +
-    timestramp +
+    timestamp +
     "&salt=" +
     salt +
     "&flvEnable=true&super4k=true" +
-    enableH265Str +
-    enableHDRStr;
+    h265QueryParam +
+    hdrQueryParam;
 
-  printDebug(`Request URL: ${baseURL + params}`);
+  printDebug(`Request URL: ${baseUrl + params}`);
   printDebug(headers);
-  const respData = (await fetchUrl(baseURL + params, { headers })) as Record<
+  const respData = (await fetchUrl(baseUrl + params, { headers })) as Record<
     string,
     unknown
   >;
@@ -226,10 +226,10 @@ async function getAndroidURL720p(pid: string): Promise<AndroidURLResult> {
   const content = body?.content as Record<string, unknown> | undefined;
   pid = (content?.contId as string) ?? pid;
 
-  const resURL = getddCalcuURL720p(url, pid);
+  const resUrl = getDdCalcuUrl720p(url, pid);
 
   return {
-    url: resURL,
+    url: resUrl,
     rateType: parseInt(finalRateType ?? "0"),
     content: respData,
   };
@@ -239,12 +239,12 @@ async function getAndroidURL720p(pid: string): Promise<AndroidURLResult> {
  * Follows a 302 redirect chain (up to 6 attempts) to extract the final stream Location.
  * Skips intermediate "bofang" redirect URLs and retries on failure with a 150ms back-off.
  */
-async function get302URL(resObj: AndroidURLResult): Promise<string> {
+async function resolveRedirectUrl(resObj: AndroidUrlResult): Promise<string> {
   try {
-    let z = 1;
-    while (z <= 6) {
-      if (z >= 2) {
-        printYellow(`Fetch failed, retry #${z - 1}`);
+    let attempt = 1;
+    while (attempt <= 6) {
+      if (attempt >= 2) {
+        printYellow(`Fetch failed, retry #${attempt - 1}`);
       }
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
@@ -270,10 +270,10 @@ async function get302URL(resObj: AndroidURLResult): Promise<string> {
           }
         }
       }
-      if (z !== 6) {
+      if (attempt !== 6) {
         await delay(150);
       }
-      z++;
+      attempt++;
     }
   } catch (error) {
     console.log(error);
@@ -284,7 +284,7 @@ async function get302URL(resObj: AndroidURLResult): Promise<string> {
 
 /** Logs the user's authentication status extracted from the API response body. */
 function printLoginInfo(
-  resObj: AndroidURLResult | Record<string, unknown>,
+  resObj: AndroidUrlResult | Record<string, unknown>,
 ): void {
   const content = (resObj as Record<string, unknown>).content as Record<
     string,
@@ -305,4 +305,4 @@ function printLoginInfo(
   }
 }
 
-export { getAndroidURL, getAndroidURL720p, get302URL, printLoginInfo };
+export { getAndroidUrl, getAndroidUrl720p, resolveRedirectUrl, printLoginInfo };

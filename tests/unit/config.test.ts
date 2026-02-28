@@ -11,7 +11,7 @@ describe("AppConfigSchema", () => {
     expect(result.rateType).toBe(3);
     expect(result.debug).toBe(false);
     expect(result.pass).toBe("");
-    expect(result.enableHDR).toBe(true);
+    expect(result.enableHdr).toBe(true);
     expect(result.enableH265).toBe(true);
     expect(result.programInfoUpdateInterval).toBe(6);
   });
@@ -22,9 +22,9 @@ describe("AppConfigSchema", () => {
   });
 
   it("coerces string boolean to boolean", () => {
-    const result = AppConfigSchema.parse({ debug: "true", enableHDR: "false" });
+    const result = AppConfigSchema.parse({ debug: "true", enableHdr: "false" });
     expect(result.debug).toBe(true);
-    expect(result.enableHDR).toBe(false);
+    expect(result.enableHdr).toBe(false);
   });
 
   it("validates rateType range", () => {

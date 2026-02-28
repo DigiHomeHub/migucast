@@ -5,7 +5,11 @@ vi.mock("../../src/utils/net.js", () => ({
 }));
 
 import { fetchUrl } from "../../src/utils/net.js";
-import { cateList, dataList, delay } from "../../src/utils/fetchList.js";
+import {
+  fetchCategories,
+  fetchCategoryChannels,
+  delay,
+} from "../../src/utils/channel_list.js";
 
 const mockFetchUrl = vi.mocked(fetchUrl);
 
@@ -13,7 +17,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("fetchList", () => {
+describe("channel_list", () => {
   describe("delay", () => {
     it("resolves after specified milliseconds", async () => {
       vi.useFakeTimers();
@@ -24,7 +28,7 @@ describe("fetchList", () => {
     });
   });
 
-  describe("cateList", () => {
+  describe("fetchCategories", () => {
     it("returns sorted and filtered live list", async () => {
       mockFetchUrl.mockResolvedValueOnce({
         body: {
@@ -36,7 +40,7 @@ describe("fetchList", () => {
         },
       });
 
-      const result = await cateList();
+      const result = await fetchCategories();
 
       expect(result).toHaveLength(2);
       expect(result[0]!.name).toBe("央视");
@@ -53,19 +57,17 @@ describe("fetchList", () => {
         },
       });
 
-      const result = await cateList();
+      const result = await fetchCategories();
       expect(result.every((item) => item.name !== "热门")).toBe(true);
     });
   });
 
-  describe("dataList", () => {
+  describe("fetchCategoryChannels", () => {
     it("fetches detailed data for each category", async () => {
       mockFetchUrl
         .mockResolvedValueOnce({
           body: {
-            liveList: [
-              { name: "央视", vomsID: "v1", dataList: [] },
-            ],
+            liveList: [{ name: "央视", vomsID: "v1", dataList: [] }],
           },
         })
         .mockResolvedValueOnce({
@@ -76,7 +78,7 @@ describe("fetchList", () => {
           },
         });
 
-      const result = await dataList();
+      const result = await fetchCategoryChannels();
 
       expect(result).toHaveLength(1);
       expect(result[0]!.dataList).toHaveLength(1);
@@ -87,14 +89,12 @@ describe("fetchList", () => {
       mockFetchUrl
         .mockResolvedValueOnce({
           body: {
-            liveList: [
-              { name: "央视", vomsID: "v1", dataList: [] },
-            ],
+            liveList: [{ name: "央视", vomsID: "v1", dataList: [] }],
           },
         })
         .mockRejectedValueOnce(new Error("network error"));
 
-      const result = await dataList();
+      const result = await fetchCategoryChannels();
 
       expect(result).toHaveLength(1);
       expect(result[0]!.dataList).toEqual([]);
@@ -126,9 +126,11 @@ describe("fetchList", () => {
           },
         });
 
-      const result = await dataList();
+      const result = await fetchCategoryChannels();
 
-      const allNames = result.flatMap((cat) => cat.dataList.map((ch) => ch.name));
+      const allNames = result.flatMap((cat) =>
+        cat.dataList.map((ch) => ch.name),
+      );
       expect(new Set(allNames).size).toBe(allNames.length);
     });
   });

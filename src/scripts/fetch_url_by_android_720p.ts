@@ -3,26 +3,26 @@
  * channel's stream URL via the anonymous Android 720p API.
  * Intended for CI/CD or cron-based playlist generation without user credentials.
  */
-import { dataList, delay } from "../utils/fetchList.js";
-import { getAndroidURL720p } from "../utils/androidURL.js";
+import { fetchCategoryChannels, delay } from "../utils/channel_list.js";
+import { getAndroidUrl720p } from "../utils/android_url.js";
 import {
   appendFile,
   appendFileSync,
   renameFileSync,
   writeFile,
-} from "../utils/fileUtil.js";
+} from "../utils/file_util.js";
 import { updateEpgData } from "../utils/epg.js";
 import {
   printBlue,
   printGreen,
   printRed,
   printYellow,
-} from "../utils/colorOut.js";
+} from "../utils/color_out.js";
 
 async function fetchURLByAndroid720p(): Promise<void> {
   const start = Date.now();
 
-  const datas = await dataList();
+  const datas = await fetchCategoryChannels();
   printGreen("Data fetched successfully!");
 
   const path = process.cwd() + "/interface.txt.bak";
@@ -50,7 +50,7 @@ async function fetchURLByAndroid720p(): Promise<void> {
       const item = data[j]!;
       await updateEpgData(item, epgFile);
 
-      const resObj = await getAndroidURL720p(item.pID);
+      const resObj = await getAndroidUrl720p(item.pid);
 
       if (resObj.url !== "") {
         let z = 1;

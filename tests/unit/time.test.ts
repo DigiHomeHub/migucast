@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   getDateString,
   getTimeString,
-  getDateTimeString,
-  getDateTimeStr,
+  getCompactDateTime,
+  getReadableDateTime,
   getLogDateTime,
 } from "../../src/utils/time.js";
 
@@ -32,15 +32,15 @@ describe("time utilities", () => {
     });
   });
 
-  describe("getDateTimeString", () => {
+  describe("getCompactDateTime", () => {
     it("concatenates date and time strings", () => {
-      expect(getDateTimeString(fixedDate)).toBe("20260228143045");
+      expect(getCompactDateTime(fixedDate)).toBe("20260228143045");
     });
   });
 
-  describe("getDateTimeStr", () => {
+  describe("getReadableDateTime", () => {
     it("formats as YYYY-MM-DD HH:mm:ss", () => {
-      expect(getDateTimeStr(fixedDate)).toBe("2026-02-28 14:30:45");
+      expect(getReadableDateTime(fixedDate)).toBe("2026-02-28 14:30:45");
     });
   });
 

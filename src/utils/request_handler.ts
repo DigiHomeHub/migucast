@@ -1,16 +1,16 @@
 /**
  * Core HTTP request handler logic for the migucast server.
- * - `interfaceStr`: serves playlist files (M3U, TXT, XMLTV) with host-substitution
+ * - `servePlaylist`: serves playlist files (M3U, TXT, XMLTV) with host-substitution
  * - `channel`: resolves a channel PID to a playback URL (with in-memory caching)
  * - `channelCache`: checks and returns cached playback URLs to avoid redundant API calls
  */
 import {
-  get302URL,
-  getAndroidURL,
-  getAndroidURL720p,
+  resolveRedirectUrl,
+  getAndroidUrl,
+  getAndroidUrl720p,
   printLoginInfo,
-} from "./androidURL.js";
-import { readFileSync } from "./fileUtil.js";
+} from "./android_url.js";
+import { readFileSync } from "./file_util.js";
 import { host, pass, rateType, token, userId } from "../config.js";
 import {
   printDebug,
@@ -18,26 +18,26 @@ import {
   printGrey,
   printRed,
   printYellow,
-} from "./colorOut.js";
+} from "./color_out.js";
 import type {
-  AndroidURLResult,
+  AndroidUrlResult,
   CacheEntry,
-  CacheResult,
+  CacheLookupResult,
   ChannelResult,
-  InterfaceResult,
+  PlaylistResult,
 } from "../types/index.js";
 import type { IncomingHttpHeaders } from "node:http";
 
 const urlCache: Record<string, CacheEntry> = {};
 
 /** Reads a playlist file and replaces the `${replace}` placeholder with the resolved host URL. */
-function interfaceStr(
+function servePlaylist(
   url: string,
   headers: IncomingHttpHeaders,
   urlUserId: string,
   urlToken: string,
-): InterfaceResult {
-  const result: InterfaceResult = {
+): PlaylistResult {
+  const result: PlaylistResult = {
     content: null,
     contentType: "text/plain;charset=UTF-8",
   };
@@ -103,9 +103,9 @@ async function channel(
 ): Promise<ChannelResult> {
   const result: ChannelResult = {
     code: 200,
-    pID: "",
+    pid: "",
     desc: "Service error",
-    playURL: "",
+    playUrl: "",
   };
 
   const urlSplit = url.split("/")[1];
@@ -135,17 +135,17 @@ async function channel(
   const cache = channelCache(pid, params);
   if (cache.haveCache) {
     result.code = cache.code;
-    result.playURL = cache.playURL;
+    result.playUrl = cache.playUrl;
     result.desc = cache.cacheDesc;
     return result;
   }
 
-  let resObj: AndroidURLResult;
+  let resObj: AndroidUrlResult;
   try {
     if (rateType >= 3 && (urlUserId === "" || urlToken === "")) {
-      resObj = await getAndroidURL720p(pid);
+      resObj = await getAndroidUrl720p(pid);
     } else {
-      resObj = await getAndroidURL(urlUserId, urlToken, pid, rateType);
+      resObj = await getAndroidUrl(urlUserId, urlToken, pid, rateType);
     }
   } catch (error) {
     console.log(error);
@@ -155,7 +155,7 @@ async function channel(
   printDebug(`URL after encryption: ${resObj.url}`);
 
   if (resObj.url !== "") {
-    const location = await get302URL(resObj);
+    const location = await resolveRedirectUrl(resObj);
     if (location !== "") {
       resObj.url = location;
     }
@@ -163,13 +163,13 @@ async function channel(
   printLoginInfo(resObj);
 
   printGreen(`Caching program ${pid}`);
-  let addTime = 3 * 60 * 60 * 1000;
+  let cacheTtlMs = 3 * 60 * 60 * 1000;
   if (resObj.url === "") {
-    addTime = 1 * 60 * 1000;
+    cacheTtlMs = 1 * 60 * 1000;
   }
 
   urlCache[pid] = {
-    valTime: Date.now() + addTime,
+    expiresAt: Date.now() + cacheTtlMs,
     url: resObj.url,
     content: resObj.content,
   };
@@ -184,44 +184,44 @@ async function channel(
     result.desc = `${pid} ${msg}`;
     return result;
   }
-  let playURL = resObj.url;
+  let playUrl = resObj.url;
 
   if (params !== "") {
     const resultParams = new URLSearchParams(params);
     for (const [key, value] of resultParams) {
-      playURL = `${playURL}&${key}=${value}`;
+      playUrl = `${playUrl}&${key}=${value}`;
     }
   }
 
   printGreen("URL fetched successfully");
   result.code = 302;
-  result.playURL = playURL;
+  result.playUrl = playUrl;
   return result;
 }
 
 /** Looks up a cached playback URL for the given PID; returns `haveCache: false` on miss or expiry. */
-function channelCache(pid: string, params: string): CacheResult {
-  const cache: CacheResult = {
+function channelCache(pid: string, params: string): CacheLookupResult {
+  const cache: CacheLookupResult = {
     haveCache: false,
     code: 200,
-    pID: "",
-    playURL: "",
+    pid: "",
+    playUrl: "",
     cacheDesc: "",
   };
   const cacheEntry = urlCache[pid];
   if (cacheEntry && typeof cacheEntry === "object") {
-    const valTime = cacheEntry.valTime - Date.now();
-    if (valTime >= 0) {
+    const expiresAt = cacheEntry.expiresAt - Date.now();
+    if (expiresAt >= 0) {
       cache.haveCache = true;
-      let playURL = cacheEntry.url;
+      let playUrl = cacheEntry.url;
       let msg = "Program adjusted, temporarily unavailable";
       if (cacheEntry.content !== null) {
-        printLoginInfo(cacheEntry as unknown as AndroidURLResult);
+        printLoginInfo(cacheEntry as unknown as AndroidUrlResult);
         msg =
           ((cacheEntry.content as Record<string, unknown>).message as string) ??
           msg;
       }
-      if (playURL === "") {
+      if (playUrl === "") {
         cache.cacheDesc = `${pid} ${msg}`;
         return cache;
       }
@@ -229,13 +229,13 @@ function channelCache(pid: string, params: string): CacheResult {
       if (params !== "") {
         const resultParams = new URLSearchParams(params);
         for (const [key, value] of resultParams) {
-          playURL = `${playURL}&${key}=${value}`;
+          playUrl = `${playUrl}&${key}=${value}`;
         }
       }
       printGreen("Using cached data");
       cache.code = 302;
       cache.cacheDesc = "Cache hit";
-      cache.playURL = playURL;
+      cache.playUrl = playUrl;
       return cache;
     }
   }
@@ -243,4 +243,4 @@ function channelCache(pid: string, params: string): CacheResult {
   return cache;
 }
 
-export { interfaceStr, channel, channelCache };
+export { servePlaylist, channel, channelCache };

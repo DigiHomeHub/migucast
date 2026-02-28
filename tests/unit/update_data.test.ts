@@ -12,11 +12,11 @@ vi.mock("../../src/utils/time.js", () => ({
   getLogDateTime: vi.fn(() => "2026-01-01 00:00:00:000"),
 }));
 
-vi.mock("../../src/utils/fetchList.js", () => ({
-  dataList: vi.fn(),
+vi.mock("../../src/utils/channel_list.js", () => ({
+  fetchCategoryChannels: vi.fn(),
 }));
 
-vi.mock("../../src/utils/fileUtil.js", () => ({
+vi.mock("../../src/utils/file_util.js", () => ({
   writeFile: vi.fn(),
   appendFile: vi.fn(),
   appendFileSync: vi.fn(),
@@ -28,7 +28,7 @@ vi.mock("../../src/utils/epg.js", () => ({
   updateEpgData: vi.fn(() => Promise.resolve(true)),
 }));
 
-vi.mock("../../src/utils/refreshToken.js", () => ({
+vi.mock("../../src/utils/refresh_token.js", () => ({
   default: vi.fn(() => Promise.resolve(true)),
 }));
 
@@ -36,13 +36,13 @@ vi.mock("../../src/utils/net.js", () => ({
   fetchUrl: vi.fn(),
 }));
 
-import { dataList } from "../../src/utils/fetchList.js";
+import { fetchCategoryChannels } from "../../src/utils/channel_list.js";
 import { fetchUrl } from "../../src/utils/net.js";
-import { renameFileSync } from "../../src/utils/fileUtil.js";
-import refreshToken from "../../src/utils/refreshToken.js";
-import update from "../../src/utils/updateData.js";
+import { renameFileSync } from "../../src/utils/file_util.js";
+import refreshToken from "../../src/utils/refresh_token.js";
+import { updatePlaylistData } from "../../src/utils/update_data.js";
 
-const mockDataList = vi.mocked(dataList);
+const mockDataList = vi.mocked(fetchCategoryChannels);
 const mockFetchUrl = vi.mocked(fetchUrl);
 const mockRenameFileSync = vi.mocked(renameFileSync);
 const mockRefreshToken = vi.mocked(refreshToken);
@@ -51,15 +51,15 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("updateData", () => {
-  describe("update", () => {
+describe("update_data", () => {
+  describe("updatePlaylistData", () => {
     it("runs full update cycle (TV + PE)", async () => {
       mockDataList.mockResolvedValue([
         {
           name: "央视",
-          vomsID: "v1",
+          vomsId: "v1",
           dataList: [
-            { name: "CCTV1", pID: "001", pics: { highResolutionH: "" } },
+            { name: "CCTV1", pid: "001", pics: { highResolutionH: "" } },
           ],
         },
       ]);
@@ -71,7 +71,7 @@ describe("updateData", () => {
         },
       });
 
-      await update(6);
+      await updatePlaylistData(6);
 
       expect(mockDataList).toHaveBeenCalledTimes(1);
       expect(mockRenameFileSync).toHaveBeenCalled();
@@ -79,35 +79,35 @@ describe("updateData", () => {
 
     it("refreshes token when hours is multiple of 720", async () => {
       mockDataList.mockResolvedValue([
-        { name: "央视", vomsID: "v1", dataList: [] },
+        { name: "央视", vomsId: "v1", dataList: [] },
       ]);
 
       mockFetchUrl.mockResolvedValue({
         body: { days: [], matchList: {} },
       });
 
-      await update(720);
+      await updatePlaylistData(720);
 
       expect(mockRefreshToken).toHaveBeenCalledWith("testUser", "testToken");
     });
 
     it("does not refresh token for non-720 multiples", async () => {
       mockDataList.mockResolvedValue([
-        { name: "央视", vomsID: "v1", dataList: [] },
+        { name: "央视", vomsId: "v1", dataList: [] },
       ]);
 
       mockFetchUrl.mockResolvedValue({
         body: { days: [], matchList: {} },
       });
 
-      await update(6);
+      await updatePlaylistData(6);
 
       expect(mockRefreshToken).not.toHaveBeenCalled();
     });
 
     it("handles PE match data with live events", async () => {
       mockDataList.mockResolvedValue([
-        { name: "央视", vomsID: "v1", dataList: [] },
+        { name: "央视", vomsId: "v1", dataList: [] },
       ]);
 
       mockFetchUrl
@@ -133,7 +133,7 @@ describe("updateData", () => {
               liveList: [
                 {
                   name: "Main feed",
-                  pID: "live001",
+                  pid: "live001",
                   startTimeStr: "2026-02-28 20:00",
                 },
               ],
@@ -141,14 +141,14 @@ describe("updateData", () => {
           },
         });
 
-      await update(6);
+      await updatePlaylistData(6);
 
       expect(mockFetchUrl).toHaveBeenCalled();
     });
 
     it("handles PE replay data for finished matches", async () => {
       mockDataList.mockResolvedValue([
-        { name: "央视", vomsID: "v1", dataList: [] },
+        { name: "央视", vomsId: "v1", dataList: [] },
       ]);
 
       mockFetchUrl
@@ -173,19 +173,19 @@ describe("updateData", () => {
             keyword: "2026年02月28日 赛事",
             multiPlayList: {
               replayList: [
-                { name: "全场回放", pID: "replay001" },
-                { name: "精彩集锦", pID: "replay002" },
+                { name: "全场回放", pid: "replay001" },
+                { name: "精彩集锦", pid: "replay002" },
               ],
             },
           },
         })
         .mockResolvedValueOnce({
           body: {
-            replayList: [{ name: "全场回放", pID: "replay003" }],
+            replayList: [{ name: "全场回放", pid: "replay003" }],
           },
         });
 
-      await update(6);
+      await updatePlaylistData(6);
 
       expect(mockFetchUrl).toHaveBeenCalled();
     });

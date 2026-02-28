@@ -14,12 +14,12 @@ function getTimeString(date: Date): string {
 }
 
 /** Formats a Date as `YYYYMMDDHHmmss` for API timestamp parameters. */
-function getDateTimeString(date: Date): string {
+function getCompactDateTime(date: Date): string {
   return `${getDateString(date)}${getTimeString(date)}`;
 }
 
 /** Formats a Date as `YYYY-MM-DD HH:mm:ss` for human-readable display. */
-function getDateTimeStr(date: Date): string {
+function getReadableDateTime(date: Date): string {
   return (
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")} ` +
     `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`
@@ -28,13 +28,13 @@ function getDateTimeStr(date: Date): string {
 
 /** Formats a Date as `YYYY-MM-DD HH:mm:ss:mmm` with millisecond precision for structured logs. */
 function getLogDateTime(date: Date): string {
-  return `${getDateTimeStr(date)}:${String(date.getMilliseconds()).padStart(3, "0")}`;
+  return `${getReadableDateTime(date)}:${String(date.getMilliseconds()).padStart(3, "0")}`;
 }
 
 export {
   getDateString,
   getTimeString,
-  getDateTimeString,
-  getDateTimeStr,
+  getCompactDateTime,
+  getReadableDateTime,
   getLogDateTime,
 };

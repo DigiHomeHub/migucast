@@ -15,54 +15,67 @@ vi.mock("../../src/config.js", () => ({
 }));
 
 vi.mock("../../src/utils/time.js", () => ({
-  getDateTimeStr: vi.fn(() => "2026-02-28 14:30:45"),
+  getReadableDateTime: vi.fn(() => "2026-02-28 14:30:45"),
   getDateString: vi.fn(() => "20260228"),
   getLogDateTime: vi.fn(() => "2026-02-28 14:30:45:123"),
 }));
 
-vi.mock("../../src/utils/updateData.js", () => ({
-  default: vi.fn(() => Promise.resolve()),
+vi.mock("../../src/utils/update_data.js", () => ({
+  updatePlaylistData: vi.fn(() => Promise.resolve()),
 }));
 
-vi.mock("../../src/utils/fetchList.js", () => ({
+vi.mock("../../src/utils/channel_list.js", () => ({
   delay: vi.fn(() => Promise.resolve()),
-  dataList: vi.fn(),
-  cateList: vi.fn(),
+  fetchCategoryChannels: vi.fn(),
+  fetchCategories: vi.fn(),
 }));
 
-vi.mock("../../src/utils/appUtils.js", () => ({
-  interfaceStr: vi.fn(() => ({
+vi.mock("../../src/utils/request_handler.js", () => ({
+  servePlaylist: vi.fn(() => ({
     content: "#EXTM3U test content",
     contentType: "text/plain;charset=UTF-8",
   })),
   channel: vi.fn(() =>
-    Promise.resolve({ code: 302, pID: "123", desc: "", playURL: "http://stream.example.com/live" }),
+    Promise.resolve({
+      code: 302,
+      pid: "123",
+      desc: "",
+      playUrl: "http://stream.example.com/live",
+    }),
   ),
 }));
 
 vi.mock("../../src/utils/net.js", () => ({
   fetchUrl: vi.fn(),
-  getLocalIPv: vi.fn(() => []),
+  getLocalIpAddresses: vi.fn(() => []),
 }));
 
-vi.mock("../../src/utils/ddCalcuURL.js", () => ({
-  getddCalcuURL: vi.fn(),
-  getddCalcuURL720p: vi.fn(),
+vi.mock("../../src/utils/dd_calcu_url.js", () => ({
+  getDdCalcuUrl: vi.fn(),
+  getDdCalcuUrl720p: vi.fn(),
 }));
 
-function httpGet(url: string): Promise<{ statusCode: number; headers: http.IncomingHttpHeaders; body: string }> {
+function httpGet(url: string): Promise<{
+  statusCode: number;
+  headers: http.IncomingHttpHeaders;
+  body: string;
+}> {
   return new Promise((resolve, reject) => {
-    http.get(url, (res) => {
-      let body = "";
-      res.on("data", (chunk: Buffer) => { body += chunk.toString(); });
-      res.on("end", () => {
-        resolve({
-          statusCode: res.statusCode ?? 0,
-          headers: res.headers,
-          body,
+    http
+      .get(url, (res) => {
+        let body = "";
+        res.on("data", (chunk: Buffer) => {
+          body += chunk.toString();
         });
-      });
-    }).on("error", reject);
+        res.on("end", () => {
+          resolve({
+            statusCode: res.statusCode ?? 0,
+            headers: res.headers,
+            body,
+          });
+        });
+      })
+      .on("error", reject);
   });
 }
 
@@ -73,7 +86,9 @@ function httpRequest(
   return new Promise((resolve, reject) => {
     const req = http.request(url, { method }, (res) => {
       let body = "";
-      res.on("data", (chunk: Buffer) => { body += chunk.toString(); });
+      res.on("data", (chunk: Buffer) => {
+        body += chunk.toString();
+      });
       res.on("end", () => {
         resolve({ statusCode: res.statusCode ?? 0, body });
       });
@@ -88,15 +103,22 @@ let baseURL: string;
 
 beforeAll(async () => {
   const capturedServers: http.Server[] = [];
-  const originalListen = http.Server.prototype.listen.bind(http.Server.prototype);
-  vi.spyOn(http.Server.prototype, "listen").mockImplementation(function (this: http.Server, ...args: unknown[]) {
+  const originalListen = http.Server.prototype.listen.bind(
+    http.Server.prototype,
+  );
+  vi.spyOn(http.Server.prototype, "listen").mockImplementation(function (
+    this: http.Server,
+    ...args: unknown[]
+  ) {
     capturedServers.push(this);
     return originalListen.call(this, 0, () => {
       const addr = this.address();
       if (addr && typeof addr === "object") {
         baseURL = `http://127.0.0.1:${addr.port}`;
       }
-      const cb = args.find((a) => typeof a === "function") as (() => void) | undefined;
+      const cb = args.find((a) => typeof a === "function") as
+        | (() => void)
+        | undefined;
       cb?.();
     });
   });

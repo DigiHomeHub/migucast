@@ -1,5 +1,5 @@
 {
-  "name": "migu_video",
+  "name": "migucast",
   "version": "1.0.0",
   "type": "module",
   "packageManager": "pnpm@10.30.3",
@@ -33,11 +33,10 @@
     ]
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
     "@types/node": "^25.3.2",
     "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^10.0.2",
-    "eslint-config-prettier": "^10.1.8",
+    "gts": "^7.0.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "prettier": "^3.8.1",
