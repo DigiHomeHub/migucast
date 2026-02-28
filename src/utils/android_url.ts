@@ -1,29 +1,21 @@
 /**
  * Migu Android playback URL acquisition and 302-redirect resolution.
- * Handles authenticated (user+token) and anonymous (720p) request flows,
- * automatic quality downgrade on membership restrictions, ddCalcu URL signing,
- * and retry logic for 302 Location header extraction.
+ * Delegates actual API calls to the centralized API layer, while keeping
+ * business logic here: quality downgrade retry, ddCalcu URL signing,
+ * and 302 Location header extraction with retry.
  */
-import { getStringMd5 } from "./crypto_utils.js";
 import { getDdCalcuUrl, getDdCalcuUrl720p } from "./dd_calcu_url.js";
 import { printDebug, printGreen, printRed, printYellow } from "./color_out.js";
-import { fetchUrl } from "./net.js";
 import { enableH265, enableHdr } from "../config.js";
 import { delay } from "./channel_list.js";
-import type { AndroidUrlResult, SaltAndSign } from "../types/index.js";
+import { getStringMd5 } from "./crypto_utils.js";
+import type { AndroidUrlResult } from "../types/index.js";
+import { fetchPlaybackUrl, fetchPlaybackUrl720p } from "../api/migu_client.js";
 
 const clientId = getStringMd5(Date.now().toString());
 
-/** Derives a fixed salt and HMAC-style sign from the given MD5 hash for API authentication. */
-function getSaltAndSign(md5: string): SaltAndSign {
-  const salt = 1230024;
-  const suffix = "3ce941cc3cbc40528bfd1c64f9fdf6c0migu0123";
-  const sign = getStringMd5(md5 + suffix);
-  return { salt, sign };
-}
-
 /**
- * Fetches a signed playback URL via the Migu Android API with user credentials.
+ * Fetches a signed playback URL via the API layer with user credentials.
  * Automatically retries at lower quality tiers when the server responds with TIPS_NEED_MEMBER.
  */
 async function getAndroidUrl(
@@ -36,201 +28,78 @@ async function getAndroidUrl(
     return { url: "", rateType: 0, content: null };
   }
 
-  const timestamp = Date.now();
-  const appVersion = "26000370";
-  const headers: Record<string, string | number> = {
-    AppVersion: 2600037000,
-    TerminalId: "android",
-    "X-UP-CLIENT-CHANNEL-ID": "2600037000-99000-200300220100002",
-  };
+  const opts = { userId, token, enableHdr, enableH265 };
 
-  if (pid !== "641886683" && pid !== "641886773") {
-    headers["appCode"] = "miguvideo_default_android";
+  let respData = await fetchPlaybackUrl(pid, rateType, opts);
+  if (!respData) {
+    return { url: "", rateType: 0, content: null };
   }
-
-  if (rateType !== 2 && userId !== "" && token !== "") {
-    headers.UserId = userId;
-    headers.UserToken = token;
-  }
-
-  const str = timestamp + pid + appVersion;
-  const md5 = getStringMd5(str);
-  const result = getSaltAndSign(md5);
-
-  let hdrQueryParam = "";
-  if (enableHdr) {
-    hdrQueryParam = "&4kvivid=true&2Kvivid=true&vivid=2";
-  }
-  let h265QueryParam = "";
-  if (enableH265) {
-    h265QueryParam = "&h265N=true";
-  }
-
-  const baseUrl = "https://play.miguvideo.com/playurl/v1/play/playurl";
-  let params =
-    "?sign=" +
-    result.sign +
-    "&rateType=" +
-    rateType +
-    "&contId=" +
-    pid +
-    "&timestamp=" +
-    timestamp +
-    "&salt=" +
-    result.salt +
-    "&flvEnable=true&super4k=true" +
-    (rateType === 9 ? "&ott=true" : "") +
-    h265QueryParam +
-    hdrQueryParam;
-
-  printDebug(`Request URL: ${baseUrl + params}`);
-  let respData = (await fetchUrl(baseUrl + params, {
-    headers: headers as Record<string, string>,
-  })) as Record<string, unknown>;
   printDebug(respData);
 
   if (respData.rid === "TIPS_NEED_MEMBER") {
     printYellow("Account has no membership, reducing quality");
-    const body = respData.body as Record<string, unknown> | undefined;
-    const urlInfo = body?.urlInfo as Record<string, unknown> | undefined;
-    const respRateType = parseInt(String(urlInfo?.rateType)) > 4 ? 4 : 3;
-    params =
-      "?sign=" +
-      result.sign +
-      "&rateType=" +
-      respRateType +
-      "&contId=" +
-      pid +
-      "&timestamp=" +
-      timestamp +
-      "&salt=" +
-      result.salt +
-      "&flvEnable=true&super4k=true" +
-      h265QueryParam +
-      hdrQueryParam;
-    printDebug(`Request URL: ${baseUrl + params}`);
-    respData = (await fetchUrl(baseUrl + params, {
-      headers: headers as Record<string, string>,
-    })) as Record<string, unknown>;
+    const respRateType =
+      parseInt(String(respData.body?.urlInfo?.rateType)) > 4 ? 4 : 3;
+    respData = await fetchPlaybackUrl(pid, respRateType, opts);
+    if (!respData) {
+      return { url: "", rateType: 0, content: null };
+    }
 
     if (respData.rid === "TIPS_NEED_MEMBER") {
       printYellow("Account is not diamond member, reducing quality");
-      params =
-        "?sign=" +
-        result.sign +
-        "&rateType=3" +
-        "&contId=" +
-        pid +
-        "&timestamp=" +
-        timestamp +
-        "&salt=" +
-        result.salt +
-        "&flvEnable=true&super4k=true" +
-        h265QueryParam +
-        hdrQueryParam;
-      printDebug(`Request URL: ${baseUrl + params}`);
-      respData = (await fetchUrl(baseUrl + params, {
-        headers: headers as Record<string, string>,
-      })) as Record<string, unknown>;
+      respData = await fetchPlaybackUrl(pid, 3, opts);
+      if (!respData) {
+        return { url: "", rateType: 0, content: null };
+      }
     }
   }
 
   printDebug(respData);
-  const body = respData.body as Record<string, unknown> | undefined;
-  const urlInfo = body?.urlInfo as Record<string, unknown> | undefined;
-  const url = urlInfo?.url as string | undefined;
+  const url = respData.body?.urlInfo?.url;
 
   if (!url) {
     return { url: "", rateType: 0, content: respData };
   }
 
-  const content = body?.content as Record<string, unknown> | undefined;
-  pid = (content?.contId as string) ?? pid;
+  pid = respData.body?.content?.contId ?? pid;
 
   const resUrl = getDdCalcuUrl(url, pid, "android", rateType, userId);
-  const finalRateType = urlInfo?.rateType as string | undefined;
+  const finalRateType = respData.body?.urlInfo?.rateType;
 
   return {
     url: resUrl,
-    rateType: parseInt(finalRateType ?? "0"),
+    rateType: parseInt(String(finalRateType ?? "0")),
     content: respData,
   };
 }
 
 /** Fetches a 720p playback URL without user credentials (anonymous access). */
 async function getAndroidUrl720p(pid: string): Promise<AndroidUrlResult> {
-  const timestamp = Math.round(Date.now()).toString();
-  const appVersion = "2600034600";
-  const appVersionId = appVersion + "-99000-201600010010028";
-  const headers: Record<string, string> = {
-    AppVersion: appVersion,
-    TerminalId: "android",
-    "X-UP-CLIENT-CHANNEL-ID": appVersionId,
-    ClientId: clientId,
-  };
-
   printDebug("clientId: " + clientId);
-  if (pid !== "641886683" && pid !== "641886773") {
-    headers["appCode"] = "miguvideo_default_android";
+
+  const respData = await fetchPlaybackUrl720p(pid, clientId, {
+    enableHdr,
+    enableH265,
+  });
+  if (!respData) {
+    return { url: "", rateType: 0, content: null };
   }
-
-  const str = timestamp + pid + appVersion.substring(0, 8);
-  const md5 = getStringMd5(str);
-
-  const salt =
-    String(Math.floor(Math.random() * 1000000)).padStart(6, "0") + "25";
-  const suffix = "2cac4f2c6c3346a5b34e085725ef7e33migu" + salt.substring(0, 4);
-  const sign = getStringMd5(md5 + suffix);
-
-  let hdrQueryParam = "";
-  if (enableHdr) {
-    hdrQueryParam = "&4kvivid=true&2Kvivid=true&vivid=2";
-  }
-  let h265QueryParam = "";
-  if (enableH265) {
-    h265QueryParam = "&h265N=true";
-  }
-
-  const baseUrl = "https://play.miguvideo.com/playurl/v1/play/playurl";
-  const params =
-    "?sign=" +
-    sign +
-    "&rateType=3" +
-    "&contId=" +
-    pid +
-    "&timestamp=" +
-    timestamp +
-    "&salt=" +
-    salt +
-    "&flvEnable=true&super4k=true" +
-    h265QueryParam +
-    hdrQueryParam;
-
-  printDebug(`Request URL: ${baseUrl + params}`);
-  printDebug(headers);
-  const respData = (await fetchUrl(baseUrl + params, { headers })) as Record<
-    string,
-    unknown
-  >;
   printDebug(respData);
 
-  const body = respData.body as Record<string, unknown> | undefined;
-  const urlInfo = body?.urlInfo as Record<string, unknown> | undefined;
-  const url = urlInfo?.url as string | undefined;
+  const url = respData.body?.urlInfo?.url;
 
   if (!url) {
     return { url: "", rateType: 0, content: respData };
   }
 
-  const finalRateType = urlInfo?.rateType as string | undefined;
-  const content = body?.content as Record<string, unknown> | undefined;
-  pid = (content?.contId as string) ?? pid;
+  const finalRateType = respData.body?.urlInfo?.rateType;
+  pid = respData.body?.content?.contId ?? pid;
 
   const resUrl = getDdCalcuUrl720p(url, pid);
 
   return {
     url: resUrl,
-    rateType: parseInt(finalRateType ?? "0"),
+    rateType: parseInt(String(finalRateType ?? "0")),
     content: respData,
   };
 }
@@ -306,3 +175,4 @@ function printLoginInfo(
 }
 
 export { getAndroidUrl, getAndroidUrl720p, resolveRedirectUrl, printLoginInfo };
+export type { PlaybackResponse } from "../api/schemas.js";

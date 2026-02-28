@@ -10,8 +10,9 @@ vi.mock("../../src/utils/time.js", () => ({
   getLogDateTime: vi.fn(() => "2026-01-01 00:00:00:000"),
 }));
 
-vi.mock("../../src/utils/net.js", () => ({
-  fetchUrl: vi.fn(),
+vi.mock("../../src/api/migu_client.js", () => ({
+  fetchPlaybackUrl: vi.fn(),
+  fetchPlaybackUrl720p: vi.fn(),
 }));
 
 vi.mock("../../src/utils/dd_calcu_url.js", () => ({
@@ -27,7 +28,10 @@ vi.mock("../../src/utils/channel_list.js", () => ({
   delay: vi.fn(() => Promise.resolve()),
 }));
 
-import { fetchUrl } from "../../src/utils/net.js";
+import {
+  fetchPlaybackUrl,
+  fetchPlaybackUrl720p,
+} from "../../src/api/migu_client.js";
 import {
   getAndroidUrl,
   getAndroidUrl720p,
@@ -35,7 +39,8 @@ import {
   printLoginInfo,
 } from "../../src/utils/android_url.js";
 
-const mockFetchUrl = vi.mocked(fetchUrl);
+const mockFetchPlaybackUrl = vi.mocked(fetchPlaybackUrl);
+const mockFetchPlaybackUrl720p = vi.mocked(fetchPlaybackUrl720p);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -46,11 +51,11 @@ describe("android_url", () => {
     it("returns empty result when rateType <= 1", async () => {
       const result = await getAndroidUrl("user1", "token1", "pid1", 1);
       expect(result).toEqual({ url: "", rateType: 0, content: null });
-      expect(mockFetchUrl).not.toHaveBeenCalled();
+      expect(mockFetchPlaybackUrl).not.toHaveBeenCalled();
     });
 
     it("returns encrypted URL on success", async () => {
-      mockFetchUrl.mockResolvedValueOnce({
+      mockFetchPlaybackUrl.mockResolvedValueOnce({
         body: {
           urlInfo: {
             url: "http://play.example.com/live?puData=abc",
@@ -67,7 +72,7 @@ describe("android_url", () => {
     });
 
     it("returns empty URL when urlInfo.url is missing", async () => {
-      mockFetchUrl.mockResolvedValueOnce({
+      mockFetchPlaybackUrl.mockResolvedValueOnce({
         body: { urlInfo: {} },
       });
 
@@ -76,8 +81,15 @@ describe("android_url", () => {
       expect(result.rateType).toBe(0);
     });
 
+    it("returns empty result when API returns undefined", async () => {
+      mockFetchPlaybackUrl.mockResolvedValueOnce(undefined);
+
+      const result = await getAndroidUrl("user1", "token1", "pid1", 4);
+      expect(result).toEqual({ url: "", rateType: 0, content: null });
+    });
+
     it("retries with lower quality on TIPS_NEED_MEMBER", async () => {
-      mockFetchUrl
+      mockFetchPlaybackUrl
         .mockResolvedValueOnce({
           rid: "TIPS_NEED_MEMBER",
           body: { urlInfo: { rateType: "5" } },
@@ -94,12 +106,12 @@ describe("android_url", () => {
 
       const result = await getAndroidUrl("user1", "token1", "pid1", 8);
 
-      expect(mockFetchUrl).toHaveBeenCalledTimes(2);
+      expect(mockFetchPlaybackUrl).toHaveBeenCalledTimes(2);
       expect(result.url).toContain("&ddCalcu=mocked");
     });
 
     it("retries twice on double TIPS_NEED_MEMBER", async () => {
-      mockFetchUrl
+      mockFetchPlaybackUrl
         .mockResolvedValueOnce({
           rid: "TIPS_NEED_MEMBER",
           body: { urlInfo: { rateType: "5" } },
@@ -119,29 +131,14 @@ describe("android_url", () => {
         });
 
       const result = await getAndroidUrl("user1", "token1", "pid1", 8);
-      expect(mockFetchUrl).toHaveBeenCalledTimes(3);
+      expect(mockFetchPlaybackUrl).toHaveBeenCalledTimes(3);
       expect(result.rateType).toBe(3);
-    });
-
-    it("does not send auth headers when rateType=2", async () => {
-      mockFetchUrl.mockResolvedValueOnce({
-        body: {
-          urlInfo: { url: "http://x?puData=y", rateType: "2" },
-          content: {},
-        },
-      });
-
-      await getAndroidUrl("user1", "token1", "pid1", 2);
-
-      const callOpts = mockFetchUrl.mock.calls[0]![1] as RequestInit;
-      const headers = callOpts.headers as Record<string, string>;
-      expect(headers["UserId"]).toBeUndefined();
     });
   });
 
   describe("getAndroidUrl720p", () => {
     it("returns encrypted URL on success", async () => {
-      mockFetchUrl.mockResolvedValueOnce({
+      mockFetchPlaybackUrl720p.mockResolvedValueOnce({
         body: {
           urlInfo: {
             url: "http://play.example.com/live?puData=abc",
@@ -158,12 +155,19 @@ describe("android_url", () => {
     });
 
     it("returns empty URL when urlInfo is missing", async () => {
-      mockFetchUrl.mockResolvedValueOnce({
+      mockFetchPlaybackUrl720p.mockResolvedValueOnce({
         body: { urlInfo: {} },
       });
 
       const result = await getAndroidUrl720p("pid1");
       expect(result.url).toBe("");
+    });
+
+    it("returns empty result when API returns undefined", async () => {
+      mockFetchPlaybackUrl720p.mockResolvedValueOnce(undefined);
+
+      const result = await getAndroidUrl720p("pid1");
+      expect(result).toEqual({ url: "", rateType: 0, content: null });
     });
   });
 

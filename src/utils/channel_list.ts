@@ -1,9 +1,12 @@
 /**
- * Fetches live TV category and channel listings from the Migu content API.
+ * Fetches live TV category and channel listings via the API layer.
  * Filters unwanted categories, sorts with CCTV first, fetches per-category
  * channel details, and deduplicates channels that appear in multiple categories.
  */
-import { fetchUrl } from "./net.js";
+import {
+  fetchLiveCategories,
+  fetchCategoryDetail,
+} from "../api/migu_client.js";
 import type { CategoryData, ChannelInfo } from "../types/index.js";
 import { printYellow } from "./color_out.js";
 
@@ -12,22 +15,6 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
-}
-
-// --- Raw API response types (match Migu API field names) ---
-
-interface RawChannelInfo {
-  pID: string;
-  name: string;
-  pics: { highResolutionH: string; [key: string]: string };
-  [key: string]: unknown;
-}
-
-interface RawLiveItem {
-  name: string;
-  vomsID: string;
-  dataList: RawChannelInfo[];
-  [key: string]: unknown;
 }
 
 // --- Internal types ---
@@ -41,19 +28,32 @@ interface LiveItem {
 
 // --- API boundary mapping (external field names → internal field names) ---
 
-function mapChannelInfo(raw: RawChannelInfo): ChannelInfo {
+function mapChannelInfo(raw: {
+  pID: string;
+  name: string;
+  pics: { highResolutionH: string };
+}): ChannelInfo {
   return { ...raw, pid: raw.pID };
 }
 
-function mapLiveItem(raw: RawLiveItem): LiveItem {
+function mapLiveItem(raw: {
+  name: string;
+  vomsID: string;
+  dataList: Array<{
+    pID: string;
+    name: string;
+    pics: { highResolutionH: string };
+  }>;
+}): LiveItem {
   return { ...raw, vomsId: raw.vomsID };
 }
 
 /** Fetches top-level live TV categories, removes "热门", and sorts CCTV to the front. */
 async function fetchCategories(): Promise<LiveItem[]> {
-  const resp = (await fetchUrl(
-    "https://program-sc.miguvideo.com/live/v2/tv-data/1ff892f2b5ab4a79be6e25b69d2f5d05",
-  )) as { body: { liveList: RawLiveItem[] } };
+  const resp = await fetchLiveCategories();
+  if (!resp) {
+    return [];
+  }
 
   const rawFirst = resp.body.liveList[0];
   if (rawFirst) {
@@ -95,9 +95,11 @@ async function fetchCategoryChannels(): Promise<CategoryData[]> {
 
   for (let i = 0; i < cates.length; i++) {
     try {
-      const resp = (await fetchUrl(
-        "https://program-sc.miguvideo.com/live/v2/tv-data/" + cates[i]!.vomsId,
-      )) as { body: { dataList: RawChannelInfo[] } };
+      const resp = await fetchCategoryDetail(cates[i]!.vomsId);
+      if (!resp) {
+        cates[i]!.dataList = [];
+        continue;
+      }
 
       if (i === 0 && resp.body.dataList[0]) {
         const rawCh = resp.body.dataList[0];

@@ -1,6 +1,6 @@
 /**
  * Electronic Program Guide (EPG) data fetcher and XMLTV writer.
- * Retrieves EPG schedules from two sources:
+ * Retrieves EPG schedules from two sources via the API layer:
  *   - Migu's own EPG API (for most channels)
  *   - CNTV's public EPG API (for CCTV-branded channels)
  * Outputs XMLTV-formatted `<channel>` and `<programme>` elements to a file.
@@ -8,46 +8,14 @@
 import { getDateString, getCompactDateTime } from "./time.js";
 import { appendFileSync } from "./file_util.js";
 import { cntvNames } from "./static_data.js";
-import { fetchUrl } from "./net.js";
+import { fetchMiguEpg } from "../api/migu_client.js";
+import { fetchCntvEpg } from "../api/cntv_client.js";
 import type { ChannelInfo } from "../types/index.js";
-
-// Raw API response type (Migu EPG uses `contName`)
-interface RawEpgItem {
-  contName: string;
-  startTime: number;
-  endTime: number;
-}
 
 interface EpgItem {
   programName: string;
   startTime: number;
   endTime: number;
-}
-
-interface CntvEpgItem {
-  t: string;
-  st: number;
-  et: number;
-}
-
-function mapEpgItem(raw: RawEpgItem): EpgItem {
-  return { ...raw, programName: raw.contName };
-}
-
-/** Fetches today's program schedule from the Migu EPG API for a given program ID. */
-async function fetchMiguEpg(
-  programId: string,
-  timeout: number = 6000,
-  timezoneOffsetMs: number = 0,
-): Promise<EpgItem[] | undefined> {
-  const date = new Date(Date.now() + timezoneOffsetMs);
-  const today = getDateString(date);
-  const resp = (await fetchUrl(
-    `https://program-sc.miguvideo.com/live/v2/tv-programs-data/${programId}/${today}`,
-    {},
-    timeout,
-  )) as { body?: { program?: Array<{ content?: RawEpgItem[] }> } };
-  return resp.body?.program?.[0]?.content?.map(mapEpgItem);
 }
 
 /** Escapes the five XML special characters to their entity references. */
@@ -67,10 +35,23 @@ async function writeEpgFromMigu(
   timeout: number = 6000,
   timezoneOffsetMs: number = 0,
 ): Promise<boolean> {
-  const epgData = await fetchMiguEpg(program.pid, timeout, timezoneOffsetMs);
-  if (!epgData) {
+  const date = new Date(Date.now() + timezoneOffsetMs);
+  const today = getDateString(date);
+  const resp = await fetchMiguEpg(program.pid, today, timeout);
+  if (!resp) {
     return false;
   }
+
+  const rawItems = resp.body?.program?.[0]?.content;
+  if (!rawItems) {
+    return false;
+  }
+
+  const epgData: EpgItem[] = rawItems.map((raw) => ({
+    programName: raw.contName,
+    startTime: raw.startTime,
+    endTime: raw.endTime,
+  }));
 
   appendFileSync(
     filePath,
@@ -104,11 +85,10 @@ async function writeEpgFromCntv(
   const cntvName = cntvNames[program.name];
   if (!cntvName) return false;
 
-  const resp = (await fetchUrl(
-    `https://api.cntv.cn/epg/epginfo3?serviceId=shiyi&d=${today}&c=${cntvName}`,
-    {},
-    timeout,
-  )) as Record<string, { program?: CntvEpgItem[] }>;
+  const resp = await fetchCntvEpg(cntvName, today, timeout);
+  if (!resp) {
+    return false;
+  }
 
   const epgData = resp[cntvName]?.program;
   if (!epgData) {
