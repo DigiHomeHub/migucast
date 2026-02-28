@@ -28,6 +28,10 @@ export const AppConfigSchema = z.object({
   enableHdr: envBoolean(true),
   enableH265: envBoolean(true),
   programInfoUpdateInterval: z.coerce.number().int().positive().default(6),
+  logLevel: z
+    .enum(["silly", "trace", "debug", "info", "warn", "error", "fatal"])
+    .default("info"),
+  logFile: z.string().optional(),
 });
 
 export const config = AppConfigSchema.parse({
@@ -41,6 +45,8 @@ export const config = AppConfigSchema.parse({
   enableHdr: process.env.menableHDR,
   enableH265: process.env.menableH265,
   programInfoUpdateInterval: process.env.mupdateInterval,
+  logLevel: process.env.mlogLevel,
+  logFile: process.env.mlogFile,
 });
 
 export const {
@@ -54,4 +60,6 @@ export const {
   enableHdr,
   enableH265,
   programInfoUpdateInterval,
+  logLevel,
+  logFile,
 } = config;

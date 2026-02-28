@@ -3,7 +3,7 @@
  * Fetches program schedule data for CCTV-branded channels from the public CNTV API.
  */
 import { fetchUrl } from "../utils/net.js";
-import { printDebug, printRed } from "../utils/color_out.js";
+import { logger } from "../logger.js";
 import { CntvEpgResponseSchema, type CntvEpgResponse } from "./schemas.js";
 import type { z } from "zod";
 
@@ -19,10 +19,10 @@ function validateOrFallback<T>(
   }
   const parsed = schema.safeParse(raw);
   if (!parsed.success) {
-    printRed(
+    logger.error(
       `[cntv_client] ${label} schema validation failed (using raw data as fallback): ${parsed.error.message}`,
     );
-    printDebug(
+    logger.trace(
       `[cntv_client] ${label} raw response: ${JSON.stringify(raw).substring(0, 500)}`,
     );
     return raw as T;
@@ -36,7 +36,7 @@ export async function fetchCntvEpg(
   timeout: number = 6000,
 ): Promise<CntvEpgResponse | undefined> {
   const url = `${CNTV_EPG_BASE}/epg/epginfo3?serviceId=shiyi&d=${dateStr}&c=${cntvName}`;
-  printDebug(`[cntv_client] fetchCntvEpg: ${url}`);
+  logger.trace(`[cntv_client] fetchCntvEpg: ${url}`);
   const raw = await fetchUrl(url, {}, timeout);
   return validateOrFallback(raw, CntvEpgResponseSchema, "fetchCntvEpg");
 }

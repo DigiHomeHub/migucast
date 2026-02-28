@@ -9,7 +9,7 @@
  */
 import { fetchUrl } from "../utils/net.js";
 import { getStringMd5 } from "../utils/crypto_utils.js";
-import { printDebug, printRed } from "../utils/color_out.js";
+import { logger } from "../logger.js";
 import {
   CategoryListResponseSchema,
   CategoryDetailResponseSchema,
@@ -64,10 +64,10 @@ function validateOrFallback<T>(
   }
   const parsed = schema.safeParse(raw);
   if (!parsed.success) {
-    printRed(
+    logger.error(
       `[migu_client] ${label} schema validation failed (using raw data as fallback): ${parsed.error.message}`,
     );
-    printDebug(
+    logger.trace(
       `[migu_client] ${label} raw response: ${JSON.stringify(raw).substring(0, 500)}`,
     );
     return raw as T;
@@ -110,7 +110,7 @@ export async function fetchLiveCategories(
   timeout: number = 6000,
 ): Promise<CategoryListResponse | undefined> {
   const url = `${MIGU_PROGRAM_BASE}/live/v2/tv-data/${CATEGORY_LIST_FIXED_ID}`;
-  printDebug(`[migu_client] fetchLiveCategories: ${url}`);
+  logger.trace(`[migu_client] fetchLiveCategories: ${url}`);
   const raw = await fetchUrl(url, {}, timeout);
   return validateOrFallback(
     raw,
@@ -128,7 +128,7 @@ export async function fetchCategoryDetail(
   timeout: number = 6000,
 ): Promise<CategoryDetailResponse | undefined> {
   const url = `${MIGU_PROGRAM_BASE}/live/v2/tv-data/${vomsId}`;
-  printDebug(`[migu_client] fetchCategoryDetail: ${url}`);
+  logger.trace(`[migu_client] fetchCategoryDetail: ${url}`);
   const raw = await fetchUrl(url, {}, timeout);
   return validateOrFallback(
     raw,
@@ -201,7 +201,7 @@ export async function fetchPlaybackUrl(
     hdrParam;
 
   const url = `${MIGU_PLAY_BASE}/playurl/v1/play/playurl${params}`;
-  printDebug(`[migu_client] fetchPlaybackUrl: ${url}`);
+  logger.trace(`[migu_client] fetchPlaybackUrl: ${url}`);
   const raw = await fetchUrl(
     url,
     {
@@ -265,7 +265,7 @@ export async function fetchPlaybackUrl720p(
     hdrParam;
 
   const url = `${MIGU_PLAY_BASE}/playurl/v1/play/playurl${params}`;
-  printDebug(`[migu_client] fetchPlaybackUrl720p: ${url}`);
+  logger.trace(`[migu_client] fetchPlaybackUrl720p: ${url}`);
   const raw = await fetchUrl(url, { headers }, timeout);
   return validateOrFallback(
     raw,
@@ -284,7 +284,7 @@ export async function fetchMiguEpg(
   timeout: number = 6000,
 ): Promise<MiguEpgResponse | undefined> {
   const url = `${MIGU_PROGRAM_BASE}/live/v2/tv-programs-data/${programId}/${dateStr}`;
-  printDebug(`[migu_client] fetchMiguEpg: ${url}`);
+  logger.trace(`[migu_client] fetchMiguEpg: ${url}`);
   const raw = await fetchUrl(url, {}, timeout);
   return validateOrFallback(raw, MiguEpgResponseSchema, "fetchMiguEpg");
 }
@@ -297,7 +297,7 @@ export async function fetchMatchList(
   timeout: number = 6000,
 ): Promise<MatchListResponse | undefined> {
   const url = `${MIGU_MATCH_V6}/vms-match/v6/staticcache/basic/match-list/normal-match-list/0/all/default/1/miguvideo`;
-  printDebug(`[migu_client] fetchMatchList: ${url}`);
+  logger.trace(`[migu_client] fetchMatchList: ${url}`);
   const raw = await fetchUrl(url, {}, timeout);
   return validateOrFallback(raw, MatchListResponseSchema, "fetchMatchList");
 }
@@ -311,7 +311,7 @@ export async function fetchMatchBasicData(
   timeout: number = 6000,
 ): Promise<MatchBasicDataResponse | undefined> {
   const url = `${MIGU_MATCH_VMS}/vms-match/v6/staticcache/basic/basic-data/${mgdbId}/miguvideo`;
-  printDebug(`[migu_client] fetchMatchBasicData: ${url}`);
+  logger.trace(`[migu_client] fetchMatchBasicData: ${url}`);
   const raw = await fetchUrl(url, {}, timeout);
   return validateOrFallback(
     raw,
@@ -329,7 +329,7 @@ export async function fetchMatchReplayList(
   timeout: number = 6000,
 ): Promise<MatchReplayListResponse | undefined> {
   const url = `${MIGU_MATCH_APP}/vms-match/v5/staticcache/basic/all-view-list/${mgdbId}/2/miguvideo`;
-  printDebug(`[migu_client] fetchMatchReplayList: ${url}`);
+  logger.trace(`[migu_client] fetchMatchReplayList: ${url}`);
   const raw = await fetchUrl(url, {}, timeout);
   return validateOrFallback(
     raw,
@@ -372,7 +372,7 @@ export async function refreshMiguToken(
   };
 
   const url = `${MIGU_AUTH_BASE}/login/token_refresh_migu_plus?clientId=27fb3129-5a54-45bc-8af1-7dc8f1155501&sign=${sign}&signType=RSA`;
-  printDebug(`[migu_client] refreshMiguToken: ${url}`);
+  logger.trace(`[migu_client] refreshMiguToken: ${url}`);
 
   const raw = await fetchUrl(
     url,

@@ -3,6 +3,8 @@ import os from "node:os";
 
 vi.mock("../../src/config.js", () => ({
   debug: false,
+  logLevel: "info",
+  logFile: undefined,
 }));
 
 vi.mock("../../src/utils/time.js", () => ({

@@ -26,15 +26,9 @@ function getReadableDateTime(date: Date): string {
   );
 }
 
-/** Formats a Date as `YYYY-MM-DD HH:mm:ss:mmm` with millisecond precision for structured logs. */
-function getLogDateTime(date: Date): string {
-  return `${getReadableDateTime(date)}:${String(date.getMilliseconds()).padStart(3, "0")}`;
-}
-
 export {
   getDateString,
   getTimeString,
   getCompactDateTime,
   getReadableDateTime,
-  getLogDateTime,
 };

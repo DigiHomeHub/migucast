@@ -4,7 +4,6 @@ import {
   getTimeString,
   getCompactDateTime,
   getReadableDateTime,
-  getLogDateTime,
 } from "../../src/utils/time.js";
 
 describe("time utilities", () => {
@@ -41,17 +40,6 @@ describe("time utilities", () => {
   describe("getReadableDateTime", () => {
     it("formats as YYYY-MM-DD HH:mm:ss", () => {
       expect(getReadableDateTime(fixedDate)).toBe("2026-02-28 14:30:45");
-    });
-  });
-
-  describe("getLogDateTime", () => {
-    it("formats as YYYY-MM-DD HH:mm:ss:mmm", () => {
-      expect(getLogDateTime(fixedDate)).toBe("2026-02-28 14:30:45:123");
-    });
-
-    it("pads milliseconds with leading zeros", () => {
-      const lowMs = new Date(2026, 0, 1, 0, 0, 0, 7);
-      expect(getLogDateTime(lowMs)).toMatch(/:007$/);
     });
   });
 });

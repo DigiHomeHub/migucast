@@ -16,7 +16,7 @@ import {
 import { updateEpgData } from "./epg.js";
 import { host, token, userId } from "../config.js";
 import refreshToken from "./refresh_token.js";
-import { printGreen, printRed, printYellow } from "./color_out.js";
+import { logger } from "../logger.js";
 import { getDateString } from "./time.js";
 import {
   fetchMatchList,
@@ -30,7 +30,7 @@ async function updateTV(hours: number): Promise<void> {
   const start = date.getTime();
 
   const datas = await fetchCategoryChannels();
-  printGreen("TV data fetched successfully!");
+  logger.info("TV data fetched successfully!");
 
   const interfacePath = `${process.cwd()}/interface.txt.bak`;
   const interfaceTXTPath = `${process.cwd()}/interfaceTXT.txt.bak`;
@@ -42,9 +42,9 @@ async function updateTV(hours: number): Promise<void> {
     if (userId !== "" && token !== "") {
       const refreshed = await refreshToken(userId, token);
       if (refreshed) {
-        printGreen("Token refreshed successfully");
+        logger.info("Token refreshed successfully");
       } else {
-        printRed("Token refresh failed");
+        logger.error("Token refresh failed");
       }
     }
   }
@@ -53,7 +53,7 @@ async function updateTV(hours: number): Promise<void> {
     interfacePath,
     `#EXTM3U x-tvg-url="\${replace}/epg.xml" catchup="append" catchup-source="?playbackbegin=\${(b)yyyyMMddHHmmss}&playbackend=\${(e)yyyyMMddHHmmss}"\n`,
   );
-  printYellow("Updating TV...");
+  logger.warn("Updating TV...");
 
   const epgFile = `${process.cwd()}/epg.xml.bak`;
   writeFile(
@@ -68,10 +68,10 @@ async function updateTV(hours: number): Promise<void> {
     for (let j = 0; j < data.length; j++) {
       const item = data[j]!;
       if (j === 0 && i === 0) {
-        printYellow(
+        logger.warn(
           `[diag] update_data item[0] keys: ${Object.keys(item).join(", ")}`,
         );
-        printYellow(
+        logger.warn(
           `[diag] update_data item[0] pid=${item.pid}, name=${item.name}`,
         );
       }
@@ -82,16 +82,16 @@ async function updateTV(hours: number): Promise<void> {
       );
       appendFile(interfaceTXTPath, `${item.name},\${replace}/${item.pid}\n`);
     }
-    printGreen(`Category ###: ${datas[i]!.name} updated!`);
+    logger.info(`Category ###: ${datas[i]!.name} updated!`);
   }
 
   appendFileSync(epgFile, `</tv>\n`);
   renameFileSync(epgFile, epgFile.replace(".bak", ""));
   renameFileSync(interfacePath, interfacePath.replace(".bak", ""));
   renameFileSync(interfaceTXTPath, interfaceTXTPath.replace(".bak", ""));
-  printGreen("TV update completed!");
+  logger.info("TV update completed!");
   const end = Date.now();
-  printYellow(`TV update took ${(end - start) / 1000}s`);
+  logger.warn(`TV update took ${(end - start) / 1000}s`);
 }
 
 /** Fetches sports match schedules (live + replay) and appends them to the playlist files. */
@@ -100,10 +100,10 @@ async function updatePE(_hours: number): Promise<void> {
 
   const datas = await fetchMatchList();
   if (!datas) {
-    printYellow("PE match list fetch failed, skipping sports update");
+    logger.warn("PE match list fetch failed, skipping sports update");
     return;
   }
-  printGreen("PE data fetched successfully!");
+  logger.info("PE data fetched successfully!");
 
   copyFileSync(
     `${process.cwd()}/interface.txt`,
@@ -119,7 +119,7 @@ async function updatePE(_hours: number): Promise<void> {
   const interfacePath = `${process.cwd()}/interface.txt.bak`;
   const interfaceTXTPath = `${process.cwd()}/interfaceTXT.txt.bak`;
 
-  printYellow("Updating PE...");
+  logger.warn("Updating PE...");
 
   for (let i = 1; i < 4; i++) {
     const date = datas.body?.days?.[i];
@@ -153,7 +153,7 @@ async function updatePE(_hours: number): Promise<void> {
             replayResult?.body?.replayList ??
             peResult.body?.multiPlayList?.replayList;
           if (!replayList) {
-            printYellow(`${data.mgdbId} ${pkInfoTitle} no replay available`);
+            logger.warn(`${data.mgdbId} ${pkInfoTitle} no replay available`);
             continue;
           }
           for (const replay of replayList) {
@@ -204,19 +204,19 @@ async function updatePE(_hours: number): Promise<void> {
           );
         }
       } catch {
-        printYellow(
+        logger.warn(
           `${data.mgdbId} ${pkInfoTitle} update failed (non-critical, can be ignored)`,
         );
       }
     }
-    printGreen(`Date ${date} updated!`);
+    logger.info(`Date ${date} updated!`);
   }
 
   renameFileSync(interfacePath, interfacePath.replace(".bak", ""));
   renameFileSync(interfaceTXTPath, interfaceTXTPath.replace(".bak", ""));
-  printGreen("PE update completed!");
+  logger.info("PE update completed!");
   const end = Date.now();
-  printYellow(`PE update took ${(end - start) / 1000}s`);
+  logger.warn(`PE update took ${(end - start) / 1000}s`);
 }
 
 /** Runs the full update cycle: TV channels first, then sports events. */

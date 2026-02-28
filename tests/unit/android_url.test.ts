@@ -4,6 +4,8 @@ vi.mock("../../src/config.js", () => ({
   enableHdr: false,
   enableH265: false,
   debug: false,
+  logLevel: "info",
+  logFile: undefined,
 }));
 
 vi.mock("../../src/utils/time.js", () => ({

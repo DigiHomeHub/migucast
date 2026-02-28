@@ -12,6 +12,8 @@ vi.mock("../../src/config.js", () => ({
   programInfoUpdateInterval: 999,
   enableHDR: false,
   enableH265: false,
+  logLevel: "info",
+  logFile: undefined,
 }));
 
 vi.mock("../../src/utils/time.js", () => ({
