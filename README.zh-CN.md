@@ -6,6 +6,10 @@
 
 ![Node.js >= 20](https://img.shields.io/badge/Node.js-%3E%3D%2020-339933?logo=node.js&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
+![pnpm](https://img.shields.io/badge/pnpm-%3E%3D9-F69220?logo=pnpm&logoColor=white)
+[![CI](https://github.com/DigiHomeHub/migucast/actions/workflows/ci.yml/badge.svg)](https://github.com/DigiHomeHub/migucast/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/DigiHomeHub/migucast/branch/main/graph/badge.svg)](https://codecov.io/gh/DigiHomeHub/migucast)
+[![code style: google](https://img.shields.io/badge/code%20style-google-blueviolet.svg)](https://google.github.io/styleguide/tsguide.html)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
 [![Docker: ghcr.io](https://img.shields.io/badge/Docker-ghcr.io-2496ED?logo=docker&logoColor=white)](https://ghcr.io/digihomehub/migucast)
 
