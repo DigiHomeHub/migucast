@@ -1,12 +1,19 @@
+/**
+ * Migu user token refresh flow.
+ * Constructs an AES-encrypted + RSA-signed POST request to the Migu Plus
+ * token refresh endpoint to extend session validity.
+ */
 import { AESencrypt, getStringMD5, RSAencrypt } from "./EncryUtils.js";
 import { fetchUrl } from "./net.js";
 
+/** Percent-encodes a string following RFC 3986 (also encodes `!'()*` and replaces `%20` with `+`). */
 function encodeURLEncoder(str: string): string {
   return encodeURIComponent(str)
     .replace(/[!'()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase())
     .replace(/%20/g, "+");
 }
 
+/** Refreshes the Migu user token; returns `true` on success, `false` on any failure. */
 async function refreshToken(userId: string, token: string): Promise<boolean> {
   if (!userId || !token) {
     return false;

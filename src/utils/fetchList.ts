@@ -1,6 +1,12 @@
+/**
+ * Fetches live TV category and channel listings from the Migu content API.
+ * Filters unwanted categories, sorts with CCTV first, fetches per-category
+ * channel details, and deduplicates channels that appear in multiple categories.
+ */
 import { fetchUrl } from "./net.js";
 import type { CategoryData } from "../types/index.js";
 
+/** Returns a Promise that resolves after `ms` milliseconds (used for retry back-off). */
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -14,6 +20,7 @@ interface LiveItem {
   [key: string]: unknown;
 }
 
+/** Fetches top-level live TV categories, removes "热门", and sorts CCTV to the front. */
 async function cateList(): Promise<LiveItem[]> {
   const resp = (await fetchUrl(
     "https://program-sc.miguvideo.com/live/v2/tv-data/1ff892f2b5ab4a79be6e25b69d2f5d05",
@@ -31,6 +38,7 @@ async function cateList(): Promise<LiveItem[]> {
   return liveList;
 }
 
+/** Fetches full channel data for every category and deduplicates across categories. */
 async function dataList(): Promise<CategoryData[]> {
   const cates = (await cateList()) as CategoryData[];
 
@@ -54,6 +62,7 @@ interface UniqueItem {
   [key: string]: unknown;
 }
 
+/** Removes duplicate channels (by name) while preserving the first occurrence's category. */
 function uniqueData(liveList: CategoryData[]): CategoryData[] {
   const allItems: UniqueItem[] = [];
   liveList.forEach((category) => {

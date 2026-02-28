@@ -1,3 +1,9 @@
+/**
+ * Third-party channel source integration (zbpro / fengcaizb).
+ * Downloads a gzip-compressed, AES-128-CBC encrypted channel list from a remote
+ * repository, decrypts each stream URL, validates against a domain whitelist,
+ * and produces M3U + TXT playlist files.
+ */
 import { printGreen, printMagenta, printRed } from "./colorOut.js";
 import crypto from "node:crypto";
 import { writeFileSync } from "node:fs";
@@ -10,6 +16,7 @@ import type { ZbproChannel, ZbproURLResult } from "../types/index.js";
 const KEY_ARRAY = [121, 111, 117, 33, 106, 101, 64, 49, 57, 114, 114, 36, 50, 48, 121, 35];
 const IV_ARRAY = [65, 114, 101, 121, 111, 117, 124, 62, 127, 110, 54, 38, 13, 97, 110, 63];
 
+/** Decrypts a base64-encoded AES-128-CBC ciphertext using the zbpro fixed key and IV. */
 function AESdecrypt(
   baseData: string,
   keyArray: number[] = KEY_ARRAY,
@@ -39,6 +46,10 @@ interface DomainEntry {
   times: number;
 }
 
+/**
+ * Fetches, decompresses, and decrypts the remote channel list.
+ * Returns M3U + TXT content on success, or a numeric status code on failure/skip.
+ */
 async function getAllURL(): Promise<ZbproURLResult | number> {
   const channelsURLM3U: string[] = [];
   const channelsURLTXT: string[] = [];
@@ -167,6 +178,7 @@ async function getAllURL(): Promise<ZbproURLResult | number> {
   return { m3u, txt };
 }
 
+/** Orchestrates the full zbpro update: fetch → decrypt → write M3U and TXT files. Returns 0 on success. */
 async function updateChannels(): Promise<number> {
   const m3uFilePath = `${process.cwd()}/interface.txt`;
   const txtFilePath = `${process.cwd()}/interfaceTXT.txt`;

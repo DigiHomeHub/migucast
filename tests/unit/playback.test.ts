@@ -65,7 +65,7 @@ describe("playback", () => {
         6000,
       );
       expect(mockAppendFileSync).toHaveBeenCalledTimes(2);
-      const channelXml = mockAppendFileSync.mock.calls[0]![1] as string;
+      const channelXml = mockAppendFileSync.mock.calls[0]![1];
       expect(channelXml).toContain('channel id="TestChannel"');
     });
 
@@ -121,7 +121,7 @@ describe("playback", () => {
 
       await updatePlaybackData(miguProgram, "/tmp/playback.xml");
 
-      const programXml = mockAppendFileSync.mock.calls[1]![1] as string;
+      const programXml = mockAppendFileSync.mock.calls[1]![1];
       expect(programXml).toContain("Tom &amp; Jerry &lt;Live&gt;");
     });
 

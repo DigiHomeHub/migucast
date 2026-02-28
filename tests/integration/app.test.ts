@@ -83,16 +83,14 @@ function httpRequest(
   });
 }
 
-let server: http.Server;
+let server: http.Server | undefined;
 let baseURL: string;
 
 beforeAll(async () => {
-  const appModule = await import("../../src/app.js") as { default?: http.Server };
-
-  const servers: http.Server[] = [];
-  const originalListen = http.Server.prototype.listen;
+  const capturedServers: http.Server[] = [];
+  const originalListen = http.Server.prototype.listen.bind(http.Server.prototype);
   vi.spyOn(http.Server.prototype, "listen").mockImplementation(function (this: http.Server, ...args: unknown[]) {
-    servers.push(this);
+    capturedServers.push(this);
     return originalListen.call(this, 0, () => {
       const addr = this.address();
       if (addr && typeof addr === "object") {
@@ -103,7 +101,9 @@ beforeAll(async () => {
     });
   });
 
+  await import("../../src/app.js");
   await new Promise<void>((resolve) => setTimeout(resolve, 200));
+  server = capturedServers[0];
 
   if (!baseURL) {
     const existing = http.createServer();

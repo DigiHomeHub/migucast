@@ -1,6 +1,12 @@
+/**
+ * Network utilities for the application.
+ * Provides local IP address discovery and a generic JSON-over-HTTP fetch wrapper
+ * with configurable timeout and AbortController support.
+ */
 import os from "node:os";
 import { printRed } from "./colorOut.js";
 
+/** Returns all non-internal IP addresses for the given IP version (4 or 6). */
 function getLocalIPv(ver: number = 4): string[] {
   const ips: string[] = [];
   const inter = os.networkInterfaces();
@@ -16,6 +22,7 @@ function getLocalIPv(ver: number = 4): string[] {
   return ips;
 }
 
+/** Fetches a URL, parses JSON response, and returns `undefined` on any failure or timeout. */
 async function fetchUrl(
   url: string,
   opts: RequestInit = {},

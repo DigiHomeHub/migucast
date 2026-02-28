@@ -1,3 +1,8 @@
+/**
+ * Standalone script: updates channel playlists from the zbpro third-party source
+ * and regenerates XMLTV EPG data from Migu/CNTV.
+ * Designed for GitHub Actions or similar CI environments (runs every 6 hours).
+ */
 import { printGreen, printMagenta, printRed } from "../utils/colorOut.js";
 import { appendFileSync, renameFileSync } from "../utils/fileUtil.js";
 import { updatePlaybackData } from "../utils/playback.js";
