@@ -21,118 +21,125 @@ import {
   printMagenta,
   printRed,
 } from "./utils/color_out.js";
-import { delay } from "./utils/channel_list.js";
 import { channel, servePlaylist } from "./utils/request_handler.js";
 
 let hours = 0;
-let loading = false;
 
 const server = http.createServer((req, res) => {
   void (async () => {
-    while (loading) {
-      await delay(50);
-    }
-
-    loading = true;
-
-    const { method, headers } = req;
-    let { url } = req;
-    if (!url) {
-      res.writeHead(400, { "Content-Type": "application/json;charset=UTF-8" });
-      res.end("Request URL is empty");
-      loading = false;
-      return;
-    }
-
-    if (pass !== "") {
-      const urlSplit = url.split("/");
-      if (urlSplit[1] !== pass) {
-        printRed("Authentication failed");
-        res.writeHead(200, {
+    try {
+      const { method, headers } = req;
+      let { url } = req;
+      if (!url) {
+        res.writeHead(400, {
           "Content-Type": "application/json;charset=UTF-8",
         });
-        res.end("Authentication failed");
-        loading = false;
+        res.end("Request URL is empty");
         return;
-      } else {
-        printGreen("Authentication successful");
-        if (urlSplit.length > 3) {
-          url = url.substring(pass.length + 1);
+      }
+
+      if (url === "/favicon.ico") {
+        res.writeHead(204);
+        res.end();
+        return;
+      }
+
+      if (pass !== "") {
+        const urlSplit = url.split("/");
+        if (urlSplit[1] !== pass) {
+          printRed("Authentication failed");
+          res.writeHead(200, {
+            "Content-Type": "application/json;charset=UTF-8",
+          });
+          res.end("Authentication failed");
+          return;
         } else {
+          printGreen("Authentication successful");
+          if (urlSplit.length > 3) {
+            url = url.substring(pass.length + 1);
+          } else {
+            url =
+              urlSplit.length === 2
+                ? "/"
+                : "/" + (urlSplit[urlSplit.length - 1] ?? "");
+          }
+        }
+      }
+
+      let urlToken = "";
+      let urlUserId = "";
+
+      if (/\/{1}[^/\s]{1,}\/{1}[^/\s]{1,}/.test(url)) {
+        const urlSplit = url.split("/");
+        if (urlSplit.length >= 3) {
+          urlUserId = urlSplit[1] ?? "";
+          urlToken = urlSplit[2] ?? "";
           url =
-            urlSplit.length === 2
+            urlSplit.length === 3
               ? "/"
               : "/" + (urlSplit[urlSplit.length - 1] ?? "");
         }
+      } else {
+        urlUserId = userId;
+        urlToken = token;
       }
-    }
 
-    let urlToken = "";
-    let urlUserId = "";
+      printMagenta("Request URL: " + url);
 
-    if (/\/{1}[^/\s]{1,}\/{1}[^/\s]{1,}/.test(url)) {
-      const urlSplit = url.split("/");
-      if (urlSplit.length >= 3) {
-        urlUserId = urlSplit[1] ?? "";
-        urlToken = urlSplit[2] ?? "";
-        url =
-          urlSplit.length === 3
-            ? "/"
-            : "/" + (urlSplit[urlSplit.length - 1] ?? "");
+      if (method !== "GET") {
+        res.writeHead(200, {
+          "Content-Type": "application/json;charset=UTF-8",
+        });
+        res.end(JSON.stringify({ data: "Please use GET request" }));
+        printRed(`Non-GET request received: ${method}`);
+        return;
       }
-    } else {
-      urlUserId = userId;
-      urlToken = token;
-    }
 
-    printMagenta("Request URL: " + url);
+      const interfaceList = "/,/interface.txt,/m3u,/txt,/epg.xml";
 
-    if (method !== "GET") {
-      res.writeHead(200, { "Content-Type": "application/json;charset=UTF-8" });
-      res.end(JSON.stringify({ data: "Please use GET request" }));
-      printRed(`Non-GET request received: ${method}`);
-      loading = false;
-      return;
-    }
-
-    const interfaceList = "/,/interface.txt,/m3u,/txt,/epg.xml";
-
-    if (interfaceList.indexOf(url) !== -1) {
-      const interfaceObj = servePlaylist(url, headers, urlUserId, urlToken);
-      if (interfaceObj.content === null) {
-        interfaceObj.content = "Fetch failed";
+      if (interfaceList.indexOf(url) !== -1) {
+        const interfaceObj = servePlaylist(url, headers, urlUserId, urlToken);
+        if (interfaceObj.content === null) {
+          interfaceObj.content = "Fetch failed";
+        }
+        res.setHeader("Content-Type", interfaceObj.contentType);
+        if (url === "/m3u") {
+          res.setHeader(
+            "content-disposition",
+            'inline; filename="interface.m3u"',
+          );
+        }
+        res.statusCode = 200;
+        res.end(interfaceObj.content);
+        return;
       }
-      res.setHeader("Content-Type", interfaceObj.contentType);
-      if (url === "/m3u") {
-        res.setHeader(
-          "content-disposition",
-          'inline; filename="interface.m3u"',
-        );
+
+      const result = await channel(url, urlUserId, urlToken);
+
+      if (result.code !== 302) {
+        printRed(result.desc);
+        res.writeHead(result.code, {
+          "Content-Type": "application/json;charset=UTF-8",
+        });
+        res.end(result.desc);
+        return;
       }
-      res.statusCode = 200;
-      res.end(interfaceObj.content);
-      loading = false;
-      return;
-    }
 
-    const result = await channel(url, urlUserId, urlToken);
-
-    if (result.code !== 302) {
-      printRed(result.desc);
       res.writeHead(result.code, {
         "Content-Type": "application/json;charset=UTF-8",
+        location: result.playUrl,
       });
-      res.end(result.desc);
-      loading = false;
-      return;
+      res.end();
+    } catch (error) {
+      console.log(error);
+      printRed("Unhandled request error");
+      if (!res.headersSent) {
+        res.writeHead(500, {
+          "Content-Type": "application/json;charset=UTF-8",
+        });
+        res.end("Internal server error");
+      }
     }
-
-    res.writeHead(result.code, {
-      "Content-Type": "application/json;charset=UTF-8",
-      location: result.playUrl,
-    });
-    res.end();
-    loading = false;
   })();
 });
 
