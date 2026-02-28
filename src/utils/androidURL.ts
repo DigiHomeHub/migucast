@@ -177,7 +177,8 @@ async function getAndroidURL720p(pid: string): Promise<AndroidURLResult> {
   const str = timestramp + pid + appVersion.substring(0, 8);
   const md5 = getStringMD5(str);
 
-  const salt = String(Math.floor(Math.random() * 1000000)).padStart(6, "0") + "25";
+  const salt =
+    String(Math.floor(Math.random() * 1000000)).padStart(6, "0") + "25";
   const suffix = "2cac4f2c6c3346a5b34e085725ef7e33migu" + salt.substring(0, 4);
   const sign = getStringMD5(md5 + suffix);
 
@@ -207,7 +208,10 @@ async function getAndroidURL720p(pid: string): Promise<AndroidURLResult> {
 
   printDebug(`Request URL: ${baseURL + params}`);
   printDebug(headers);
-  const respData = (await fetchUrl(baseURL + params, { headers })) as Record<string, unknown>;
+  const respData = (await fetchUrl(baseURL + params, { headers })) as Record<
+    string,
+    unknown
+  >;
   printDebug(respData);
 
   const body = respData.body as Record<string, unknown> | undefined;
@@ -279,15 +283,22 @@ async function get302URL(resObj: AndroidURLResult): Promise<string> {
 }
 
 /** Logs the user's authentication status extracted from the API response body. */
-function printLoginInfo(resObj: AndroidURLResult | Record<string, unknown>): void {
-  const content = (resObj as Record<string, unknown>).content as Record<string, unknown> | null;
+function printLoginInfo(
+  resObj: AndroidURLResult | Record<string, unknown>,
+): void {
+  const content = (resObj as Record<string, unknown>).content as Record<
+    string,
+    unknown
+  > | null;
   const body = content?.body as Record<string, unknown> | undefined;
   const auth = body?.auth as Record<string, unknown> | undefined;
 
   if (auth?.logined) {
     printGreen("Login authentication successful");
     if (auth.authResult === "FAIL") {
-      printRed(`Auth failed, incomplete video content, may require VIP: ${auth.resultDesc}`);
+      printRed(
+        `Auth failed, incomplete video content, may require VIP: ${auth.resultDesc}`,
+      );
     }
   } else {
     printYellow("Not logged in");

@@ -9,7 +9,10 @@ import { fetchUrl } from "./net.js";
 /** Percent-encodes a string following RFC 3986 (also encodes `!'()*` and replaces `%20` with `+`). */
 function encodeURLEncoder(str: string): string {
   return encodeURIComponent(str)
-    .replace(/[!'()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase())
+    .replace(
+      /[!'()*]/g,
+      (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase(),
+    )
     .replace(/%20/g, "+");
 }
 
@@ -34,7 +37,8 @@ async function refreshToken(userId: string, token: string): Promise<boolean> {
     "Content-Type": "application/json; charset=utf-8",
   };
 
-  const baseURL = "https://migu-app-umnb.miguvideo.com/login/token_refresh_migu_plus";
+  const baseURL =
+    "https://migu-app-umnb.miguvideo.com/login/token_refresh_migu_plus";
   const params = `?clientId=27fb3129-5a54-45bc-8af1-7dc8f1155501&sign=${sign}&signType=RSA`;
 
   try {

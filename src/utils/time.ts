@@ -31,4 +31,10 @@ function getLogDateTime(date: Date): string {
   return `${getDateTimeStr(date)}:${String(date.getMilliseconds()).padStart(3, "0")}`;
 }
 
-export { getDateString, getTimeString, getDateTimeString, getDateTimeStr, getLogDateTime };
+export {
+  getDateString,
+  getTimeString,
+  getDateTimeString,
+  getDateTimeStr,
+  getLogDateTime,
+};

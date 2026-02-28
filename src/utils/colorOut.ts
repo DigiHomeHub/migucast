@@ -41,4 +41,12 @@ function printDebug(obj: unknown): void {
   }
 }
 
-export { printGreen, printBlue, printRed, printYellow, printMagenta, printGrey, printDebug };
+export {
+  printGreen,
+  printBlue,
+  printRed,
+  printYellow,
+  printMagenta,
+  printGrey,
+  printDebug,
+};

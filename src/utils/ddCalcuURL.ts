@@ -165,7 +165,13 @@ function getddCalcuURL(
   const puData = puDataURL.split("&puData=")[1];
   if (!puData) return "";
 
-  const ddCalcu = getddCalcu(puData, programId, clientType, String(rateType), urlUserId);
+  const ddCalcu = getddCalcu(
+    puData,
+    programId,
+    clientType,
+    String(rateType),
+    urlUserId,
+  );
   const suffix = list[clientType].suffix;
 
   return `${puDataURL}&ddCalcu=${ddCalcu}${suffix}`;
