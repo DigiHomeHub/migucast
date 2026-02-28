@@ -1,3 +1,9 @@
+/**
+ * Core type definitions for the migucast application.
+ * Covers configuration, channel data, API responses, cache structures,
+ * and third-party integration contracts.
+ */
+
 export interface AppConfig {
   userId: string;
   token: string;

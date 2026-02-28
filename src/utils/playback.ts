@@ -1,3 +1,10 @@
+/**
+ * Electronic Program Guide (EPG) data fetcher and XMLTV writer.
+ * Retrieves playback schedules from two sources:
+ *   - Migu's own EPG API (for most channels)
+ *   - CNTV's public EPG API (for CCTV-branded channels)
+ * Outputs XMLTV-formatted `<channel>` and `<programme>` elements to a file.
+ */
 import { getDateString, getDateTimeString } from "./time.js";
 import { appendFileSync } from "./fileUtil.js";
 import { cntvNames } from "./datas.js";
@@ -16,6 +23,7 @@ interface CntvPlaybackItem {
   et: number;
 }
 
+/** Fetches today's program schedule from the Migu EPG API for a given program ID. */
 async function getPlaybackData(
   programId: string,
   timeout: number = 6000,
@@ -31,6 +39,7 @@ async function getPlaybackData(
   return resp.body?.program?.[0]?.content;
 }
 
+/** Escapes the five XML special characters to their entity references. */
 function escapeXml(str: string): string {
   return str
     .replaceAll("&", "&amp;")
@@ -40,6 +49,7 @@ function escapeXml(str: string): string {
     .replaceAll("'", "&apos;");
 }
 
+/** Writes XMLTV channel and programme entries from Migu EPG data. */
 async function updatePlaybackDataByMigu(
   program: ChannelInfo,
   filePath: string,
@@ -71,6 +81,7 @@ async function updatePlaybackDataByMigu(
   return true;
 }
 
+/** Writes XMLTV channel and programme entries from CNTV EPG data (CCTV channels only). */
 async function updatePlaybackDataByCntv(
   program: ChannelInfo,
   filePath: string,
@@ -113,6 +124,7 @@ async function updatePlaybackDataByCntv(
   return true;
 }
 
+/** Routes to the appropriate EPG source (CNTV for CCTV channels, Migu for all others). */
 async function updatePlaybackData(
   program: ChannelInfo,
   filePath: string,

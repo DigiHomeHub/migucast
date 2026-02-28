@@ -1,3 +1,10 @@
+/**
+ * Static reference data shared across modules.
+ * - CCTV channel display-name → CNTV API identifier mapping
+ * - Domain whitelist for third-party stream URL validation
+ * - Remote repo update timestamp for change detection
+ */
+
 const repoLinkUpdateTimestamp = 1772232849113;
 
 const cntvNames: Record<string, string> = {

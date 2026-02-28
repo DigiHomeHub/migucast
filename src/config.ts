@@ -1,5 +1,11 @@
+/**
+ * Application configuration module.
+ * Defines and validates all runtime settings from environment variables using Zod schemas.
+ * Environment variable prefix: `m` (e.g. `muserId`, `mtoken`, `mport`).
+ */
 import { z } from "zod";
 
+/** Preprocessor that coerces env-style string booleans ("true"/"false") into native booleans. */
 const envBoolean = (defaultValue: boolean) =>
   z.preprocess((val: unknown) => {
     if (val === undefined || val === null || val === "") return defaultValue;

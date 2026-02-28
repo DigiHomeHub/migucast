@@ -1,3 +1,9 @@
+/**
+ * Core HTTP request handler logic for the migucast server.
+ * - `interfaceStr`: serves playlist files (M3U, TXT, XMLTV) with host-substitution
+ * - `channel`: resolves a channel PID to a playback URL (with in-memory caching)
+ * - `channelCache`: checks and returns cached playback URLs to avoid redundant API calls
+ */
 import { get302URL, getAndroidURL, getAndroidURL720p, printLoginInfo } from "./androidURL.js";
 import { readFileSync } from "./fileUtil.js";
 import { host, pass, rateType, token, userId } from "../config.js";
@@ -13,6 +19,7 @@ import type { IncomingHttpHeaders } from "node:http";
 
 const urlCache: Record<string, CacheEntry> = {};
 
+/** Reads a playlist file and replaces the `${replace}` placeholder with the resolved host URL. */
 function interfaceStr(
   url: string,
   headers: IncomingHttpHeaders,
@@ -71,6 +78,11 @@ function interfaceStr(
   return result;
 }
 
+/**
+ * Resolves a channel PID from the request URL to a playback stream URL.
+ * Checks cache first, then fetches via the Android API, follows 302 redirects,
+ * and caches the result (3h for success, 1min for failure).
+ */
 async function channel(url: string, urlUserId: string, urlToken: string): Promise<ChannelResult> {
   const result: ChannelResult = {
     code: 200,
@@ -167,6 +179,7 @@ async function channel(url: string, urlUserId: string, urlToken: string): Promis
   return result;
 }
 
+/** Looks up a cached playback URL for the given PID; returns `haveCache: false` on miss or expiry. */
 function channelCache(pid: string, params: string): CacheResult {
   const cache: CacheResult = {
     haveCache: false,

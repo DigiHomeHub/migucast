@@ -1,5 +1,11 @@
+/**
+ * Thin wrappers around Node.js `fs` operations.
+ * Centralizes file I/O so callers don't depend on `fs` directly,
+ * making external boundary mocking straightforward in tests.
+ */
 import fs from "node:fs";
 
+/** Creates an empty file at `filePath` only if it does not already exist. */
 function createFile(filePath: string): void {
   if (!fs.existsSync(filePath)) {
     writeFile(filePath, "");

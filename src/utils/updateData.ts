@@ -1,3 +1,10 @@
+/**
+ * Periodic data update orchestrator.
+ * Runs two independent update pipelines:
+ *   - TV: fetches channel lists, generates M3U/TXT playlists and XMLTV EPG data
+ *   - PE (Sports): fetches live/replay match schedules and appends them to playlists
+ * Writes to `.bak` files first, then atomically renames to avoid serving partial data.
+ */
 import { dataList } from "./fetchList.js";
 import { appendFile, appendFileSync, copyFileSync, renameFileSync, writeFile } from "./fileUtil.js";
 import { updatePlaybackData } from "./playback.js";
@@ -7,6 +14,7 @@ import { printGreen, printRed, printYellow } from "./colorOut.js";
 import { getDateString } from "./time.js";
 import { fetchUrl } from "./net.js";
 
+/** Fetches all TV channel data, regenerates playlist and EPG files, and refreshes the token periodically. */
 async function updateTV(hours: number): Promise<void> {
   const date = new Date();
   const start = date.getTime();
@@ -91,6 +99,7 @@ interface PEResult {
   };
 }
 
+/** Fetches sports match schedules (live + replay) and appends them to the playlist files. */
 async function updatePE(_hours: number): Promise<void> {
   const start = Date.now();
 
@@ -193,6 +202,7 @@ async function updatePE(_hours: number): Promise<void> {
   printYellow(`PE update took ${(end - start) / 1000}s`);
 }
 
+/** Runs the full update cycle: TV channels first, then sports events. */
 async function update(hours: number): Promise<void> {
   await updateTV(hours);
   await updatePE(hours);

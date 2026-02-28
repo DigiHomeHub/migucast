@@ -1,3 +1,9 @@
+/**
+ * Migu Android playback URL acquisition and 302-redirect resolution.
+ * Handles authenticated (user+token) and anonymous (720p) request flows,
+ * automatic quality downgrade on membership restrictions, ddCalcu URL signing,
+ * and retry logic for 302 Location header extraction.
+ */
 import { getStringMD5 } from "./EncryUtils.js";
 import { getddCalcuURL, getddCalcuURL720p } from "./ddCalcuURL.js";
 import { printDebug, printGreen, printRed, printYellow } from "./colorOut.js";
@@ -8,6 +14,7 @@ import type { AndroidURLResult, SaltSign } from "../types/index.js";
 
 const client_id = getStringMD5(Date.now().toString());
 
+/** Derives a fixed salt and HMAC-style sign from the given MD5 hash for API authentication. */
 function getSaltAndSign(md5: string): SaltSign {
   const salt = 1230024;
   const suffix = "3ce941cc3cbc40528bfd1c64f9fdf6c0migu0123";
@@ -15,6 +22,10 @@ function getSaltAndSign(md5: string): SaltSign {
   return { salt, sign };
 }
 
+/**
+ * Fetches a signed playback URL via the Migu Android API with user credentials.
+ * Automatically retries at lower quality tiers when the server responds with TIPS_NEED_MEMBER.
+ */
 async function getAndroidURL(
   userId: string,
   token: string,
@@ -146,6 +157,7 @@ async function getAndroidURL(
   };
 }
 
+/** Fetches a 720p playback URL without user credentials (anonymous access). */
 async function getAndroidURL720p(pid: string): Promise<AndroidURLResult> {
   const timestramp = Math.round(Date.now()).toString();
   const appVersion = "2600034600";
@@ -219,6 +231,10 @@ async function getAndroidURL720p(pid: string): Promise<AndroidURLResult> {
   };
 }
 
+/**
+ * Follows a 302 redirect chain (up to 6 attempts) to extract the final stream Location.
+ * Skips intermediate "bofang" redirect URLs and retries on failure with a 150ms back-off.
+ */
 async function get302URL(resObj: AndroidURLResult): Promise<string> {
   try {
     let z = 1;
@@ -262,6 +278,7 @@ async function get302URL(resObj: AndroidURLResult): Promise<string> {
   return "";
 }
 
+/** Logs the user's authentication status extracted from the API response body. */
 function printLoginInfo(resObj: AndroidURLResult | Record<string, unknown>): void {
   const content = (resObj as Record<string, unknown>).content as Record<string, unknown> | null;
   const body = content?.body as Record<string, unknown> | undefined;

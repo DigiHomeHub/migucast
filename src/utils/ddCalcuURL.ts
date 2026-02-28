@@ -1,3 +1,9 @@
+/**
+ * URL anti-tamper signing for Migu video playback.
+ * Generates the `ddCalcu` query parameter by interleaving and scrambling
+ * characters from `puData`, the program ID, date, and platform-specific keys.
+ * Also provides a WebAssembly-based encryption path for alternative signing.
+ */
 import { userId } from "../config.js";
 import { fetchUrl } from "./net.js";
 import { getDateString } from "./time.js";
@@ -40,6 +46,7 @@ const importObj: WebAssembly.Imports = {
   },
 };
 
+/** Writes a video URL into WASM linear memory, invokes the encrypt export, and reads the result. */
 function encrypt(
   videoURL: string,
   memoryView: Uint8Array,
@@ -78,6 +85,10 @@ function getEncryptURL(exports: WasmExports, videoURL: string): string {
   return encrypt(videoURL, memoryView, getEncrypt);
 }
 
+/**
+ * Core signing algorithm: interleaves `puData` characters with platform-specific
+ * key lookups derived from date, program ID, and user ID to produce a tamper-proof token.
+ */
 function getddCalcu(
   puData: string,
   programId: string,
@@ -135,6 +146,7 @@ function getddCalcu(
   return ddCalcu.join("");
 }
 
+/** Appends the `ddCalcu` anti-tamper token and platform suffix to a playback URL. */
 function getddCalcuURL(
   puDataURL: string,
   programId: string,
@@ -159,6 +171,7 @@ function getddCalcuURL(
   return `${puDataURL}&ddCalcu=${ddCalcu}${suffix}`;
 }
 
+/** Simplified 720p signing variant with fixed Android keys (no user credentials required). */
 function getddCalcu720p(puData: string, programId: string): string {
   if (!puData || !programId) {
     return "";
@@ -187,6 +200,7 @@ function getddCalcu720p(puData: string, programId: string): string {
   return ddCalcu.join("");
 }
 
+/** Appends the 720p `ddCalcu` token to a playback URL (always uses Android suffix). */
 function getddCalcuURL720p(puDataURL: string, programId: string): string {
   if (!puDataURL || !programId) {
     return "";

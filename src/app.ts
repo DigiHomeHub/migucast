@@ -1,3 +1,9 @@
+/**
+ * Application entry point – HTTP server for live TV and sports streaming.
+ * Routes incoming GET requests to either a playlist file response or a
+ * 302 redirect to a resolved playback stream URL.
+ * Runs a periodic background update cycle for channel data and EPG schedules.
+ */
 import http from "node:http";
 import { host, pass, port, programInfoUpdateInterval, token, userId } from "./config.js";
 import { getDateTimeStr } from "./utils/time.js";

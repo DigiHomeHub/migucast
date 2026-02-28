@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import crypto from "node:crypto";
+import { gzipSync } from "node:zlib";
 
 vi.mock("../../src/config.js", () => ({
   debug: false,
@@ -51,7 +52,6 @@ beforeEach(() => {
 });
 
 function makeGzPayload(data: unknown): ArrayBuffer {
-  const { gzipSync } = require("node:zlib") as typeof import("node:zlib");
   const compressed = gzipSync(JSON.stringify(data));
   return compressed.buffer.slice(compressed.byteOffset, compressed.byteOffset + compressed.byteLength);
 }

@@ -1,3 +1,8 @@
+/**
+ * Standalone script: generates static M3U and XMLTV files by fetching every
+ * channel's playback URL via the anonymous Android 720p API.
+ * Intended for CI/CD or cron-based playlist generation without user credentials.
+ */
 import { dataList, delay } from "../utils/fetchList.js";
 import { getAndroidURL720p } from "../utils/androidURL.js";
 import { appendFile, appendFileSync, renameFileSync, writeFile } from "../utils/fileUtil.js";
