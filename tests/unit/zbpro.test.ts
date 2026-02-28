@@ -10,13 +10,15 @@ vi.mock("../../src/utils/time.js", () => ({
   getLogDateTime: vi.fn(() => "2026-01-01 00:00:00:000"),
 }));
 
-vi.mock("../../src/utils/datas.js", () => ({
+vi.mock("../../src/utils/static_data.js", () => ({
   domainWhiteList: ["example.com"],
   repoLinkUpdateTimestamp: 999,
 }));
 
-vi.mock("../../src/utils/fileUtil.js", () => ({
-  readFileSync: vi.fn(() => Buffer.from("const repoLinkUpdateTimestamp = 999;")),
+vi.mock("../../src/utils/file_util.js", () => ({
+  readFileSync: vi.fn(() =>
+    Buffer.from("const repoLinkUpdateTimestamp = 999;"),
+  ),
 }));
 
 vi.mock("node:fs", () => ({
@@ -33,13 +35,20 @@ vi.mock("node:fs", () => ({
 }));
 
 function aes128cbcEncrypt(plaintext: string): string {
-  const keyArr = [121, 111, 117, 33, 106, 101, 64, 49, 57, 114, 114, 36, 50, 48, 121, 35];
-  const ivArr = [65, 114, 101, 121, 111, 117, 124, 62, 127, 110, 54, 38, 13, 97, 110, 63];
+  const keyArr = [
+    121, 111, 117, 33, 106, 101, 64, 49, 57, 114, 114, 36, 50, 48, 121, 35,
+  ];
+  const ivArr = [
+    65, 114, 101, 121, 111, 117, 124, 62, 127, 110, 54, 38, 13, 97, 110, 63,
+  ];
   const key = Buffer.from(keyArr);
   const iv = Buffer.from(ivArr);
   const cipher = crypto.createCipheriv("aes-128-cbc", key, iv);
   cipher.setAutoPadding(true);
-  return Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]).toString("base64");
+  return Buffer.concat([
+    cipher.update(plaintext, "utf8"),
+    cipher.final(),
+  ]).toString("base64");
 }
 
 import { writeFileSync } from "node:fs";
@@ -53,7 +62,10 @@ beforeEach(() => {
 
 function makeGzPayload(data: unknown): ArrayBuffer {
   const compressed = gzipSync(JSON.stringify(data));
-  return compressed.buffer.slice(compressed.byteOffset, compressed.byteOffset + compressed.byteLength);
+  return compressed.buffer.slice(
+    compressed.byteOffset,
+    compressed.byteOffset + compressed.byteLength,
+  );
 }
 
 describe("zbpro", () => {
@@ -113,7 +125,12 @@ describe("zbpro", () => {
       const buf = makeGzPayload({
         timestamp: 2000,
         data: [
-          { title: "Paid-Channel", province: "National", ct: true, urls: ["abc"] },
+          {
+            title: "Paid-Channel",
+            province: "National",
+            ct: true,
+            urls: ["abc"],
+          },
         ],
       });
 

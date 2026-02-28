@@ -8,7 +8,7 @@ import {
   readFileSync,
   renameFileSync,
   copyFileSync,
-} from "../../src/utils/fileUtil.js";
+} from "../../src/utils/file_util.js";
 
 vi.mock("node:fs", () => ({
   default: {
@@ -26,7 +26,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("fileUtil", () => {
+describe("file_util", () => {
   describe("createFile", () => {
     it("creates file when it does not exist", () => {
       vi.mocked(fs.existsSync).mockReturnValue(false);
@@ -35,7 +35,11 @@ describe("fileUtil", () => {
       createFile("/tmp/test.txt");
 
       expect(fs.existsSync).toHaveBeenCalledWith("/tmp/test.txt");
-      expect(fs.writeFile).toHaveBeenCalledWith("/tmp/test.txt", "", expect.any(Function));
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        "/tmp/test.txt",
+        "",
+        expect.any(Function),
+      );
     });
 
     it("skips creation when file already exists", () => {
@@ -54,7 +58,11 @@ describe("fileUtil", () => {
 
       writeFile("/tmp/test.txt", "hello");
 
-      expect(fs.writeFile).toHaveBeenCalledWith("/tmp/test.txt", "hello", expect.any(Function));
+      expect(fs.writeFile).toHaveBeenCalledWith(
+        "/tmp/test.txt",
+        "hello",
+        expect.any(Function),
+      );
     });
 
     it("throws on write error", () => {
@@ -62,7 +70,9 @@ describe("fileUtil", () => {
         cb(new Error("disk full")),
       );
 
-      expect(() => writeFile("/tmp/test.txt", "hello")).toThrow("/tmp/test.txt: write failed");
+      expect(() => writeFile("/tmp/test.txt", "hello")).toThrow(
+        "/tmp/test.txt: write failed",
+      );
     });
   });
 
@@ -72,7 +82,11 @@ describe("fileUtil", () => {
 
       appendFile("/tmp/test.txt", "more");
 
-      expect(fs.appendFile).toHaveBeenCalledWith("/tmp/test.txt", "more", expect.any(Function));
+      expect(fs.appendFile).toHaveBeenCalledWith(
+        "/tmp/test.txt",
+        "more",
+        expect.any(Function),
+      );
     });
 
     it("throws on append error", () => {
@@ -80,7 +94,9 @@ describe("fileUtil", () => {
         cb(new Error("fail")),
       );
 
-      expect(() => appendFile("/tmp/test.txt", "more")).toThrow("/tmp/test.txt: append failed");
+      expect(() => appendFile("/tmp/test.txt", "more")).toThrow(
+        "/tmp/test.txt: append failed",
+      );
     });
   });
 
@@ -88,7 +104,10 @@ describe("fileUtil", () => {
     it("delegates to fs.appendFileSync", () => {
       appendFileSync("/tmp/test.txt", "sync data");
 
-      expect(fs.appendFileSync).toHaveBeenCalledWith("/tmp/test.txt", "sync data");
+      expect(fs.appendFileSync).toHaveBeenCalledWith(
+        "/tmp/test.txt",
+        "sync data",
+      );
     });
   });
 
@@ -108,7 +127,10 @@ describe("fileUtil", () => {
     it("delegates to fs.renameSync", () => {
       renameFileSync("/tmp/old.txt", "/tmp/new.txt");
 
-      expect(fs.renameSync).toHaveBeenCalledWith("/tmp/old.txt", "/tmp/new.txt");
+      expect(fs.renameSync).toHaveBeenCalledWith(
+        "/tmp/old.txt",
+        "/tmp/new.txt",
+      );
     });
   });
 
@@ -116,7 +138,11 @@ describe("fileUtil", () => {
     it("delegates to fs.copyFileSync", () => {
       copyFileSync("/tmp/src.txt", "/tmp/dst.txt", 0);
 
-      expect(fs.copyFileSync).toHaveBeenCalledWith("/tmp/src.txt", "/tmp/dst.txt", 0);
+      expect(fs.copyFileSync).toHaveBeenCalledWith(
+        "/tmp/src.txt",
+        "/tmp/dst.txt",
+        0,
+      );
     });
   });
 });

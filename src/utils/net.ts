@@ -4,14 +4,14 @@
  * with configurable timeout and AbortController support.
  */
 import os from "node:os";
-import { printRed } from "./colorOut.js";
+import { printRed } from "./color_out.js";
 
 /** Returns all non-internal IP addresses for the given IP version (4 or 6). */
-function getLocalIPv(ver: number = 4): string[] {
+function getLocalIpAddresses(ver: number = 4): string[] {
   const ips: string[] = [];
-  const inter = os.networkInterfaces();
-  for (const net in inter) {
-    const interfaces = inter[net];
+  const allInterfaces = os.networkInterfaces();
+  for (const net in allInterfaces) {
+    const interfaces = allInterfaces[net];
     if (!interfaces) continue;
     for (const netPort of interfaces) {
       if (netPort.family === `IPv${ver}`) {
@@ -51,4 +51,4 @@ async function fetchUrl(
   return res;
 }
 
-export { getLocalIPv, fetchUrl };
+export { getLocalIpAddresses, fetchUrl };

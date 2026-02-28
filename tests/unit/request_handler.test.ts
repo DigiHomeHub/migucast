@@ -13,58 +13,58 @@ vi.mock("../../src/utils/time.js", () => ({
   getLogDateTime: vi.fn(() => "2026-01-01 00:00:00:000"),
 }));
 
-vi.mock("../../src/utils/fileUtil.js", () => ({
+vi.mock("../../src/utils/file_util.js", () => ({
   readFileSync: vi.fn(() => Buffer.from("content ${replace}/123")),
 }));
 
-vi.mock("../../src/utils/androidURL.js", () => ({
-  getAndroidURL: vi.fn(),
-  getAndroidURL720p: vi.fn(),
-  get302URL: vi.fn(),
+vi.mock("../../src/utils/android_url.js", () => ({
+  getAndroidUrl: vi.fn(),
+  getAndroidUrl720p: vi.fn(),
+  resolveRedirectUrl: vi.fn(),
   printLoginInfo: vi.fn(),
 }));
 
-vi.mock("../../src/utils/ddCalcuURL.js", () => ({
-  getddCalcuURL: vi.fn(),
-  getddCalcuURL720p: vi.fn(),
+vi.mock("../../src/utils/dd_calcu_url.js", () => ({
+  getDdCalcuUrl: vi.fn(),
+  getDdCalcuUrl720p: vi.fn(),
 }));
 
 vi.mock("../../src/utils/net.js", () => ({
   fetchUrl: vi.fn(),
 }));
 
-vi.mock("../../src/utils/fetchList.js", () => ({
+vi.mock("../../src/utils/channel_list.js", () => ({
   delay: vi.fn(),
 }));
 
-import { readFileSync } from "../../src/utils/fileUtil.js";
+import { readFileSync } from "../../src/utils/file_util.js";
 import {
-  getAndroidURL,
-  getAndroidURL720p,
-  get302URL,
-} from "../../src/utils/androidURL.js";
+  getAndroidUrl,
+  getAndroidUrl720p,
+  resolveRedirectUrl,
+} from "../../src/utils/android_url.js";
 import {
-  interfaceStr,
+  servePlaylist,
   channel,
   channelCache,
-} from "../../src/utils/appUtils.js";
+} from "../../src/utils/request_handler.js";
 import type { IncomingHttpHeaders } from "node:http";
 
 const mockReadFileSync = vi.mocked(readFileSync);
-const mockGetAndroidURL = vi.mocked(getAndroidURL);
-const mockGetAndroidURL720p = vi.mocked(getAndroidURL720p);
-const mockGet302URL = vi.mocked(get302URL);
+const mockGetAndroidURL = vi.mocked(getAndroidUrl);
+const mockGetAndroidURL720p = vi.mocked(getAndroidUrl720p);
+const mockGet302URL = vi.mocked(resolveRedirectUrl);
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("appUtils", () => {
-  describe("interfaceStr", () => {
+describe("request_handler", () => {
+  describe("servePlaylist", () => {
     const defaultHeaders: IncomingHttpHeaders = { host: "localhost:1234" };
 
     it("reads and returns interface.txt for root URL", () => {
-      const result = interfaceStr(
+      const result = servePlaylist(
         "/",
         defaultHeaders,
         "defaultUser",
@@ -81,7 +81,7 @@ describe("appUtils", () => {
         Buffer.from("stream ${replace}/video"),
       );
 
-      const result = interfaceStr(
+      const result = servePlaylist(
         "/",
         defaultHeaders,
         "defaultUser",
@@ -91,7 +91,7 @@ describe("appUtils", () => {
     });
 
     it("returns XML content type for /epg.xml", () => {
-      const result = interfaceStr(
+      const result = servePlaylist(
         "/epg.xml",
         defaultHeaders,
         "defaultUser",
@@ -101,7 +101,7 @@ describe("appUtils", () => {
     });
 
     it("returns m3u content type for /m3u", () => {
-      const result = interfaceStr(
+      const result = servePlaylist(
         "/m3u",
         defaultHeaders,
         "defaultUser",
@@ -111,7 +111,7 @@ describe("appUtils", () => {
     });
 
     it("returns txt file for /txt", () => {
-      const result = interfaceStr(
+      const result = servePlaylist(
         "/txt",
         defaultHeaders,
         "defaultUser",
@@ -123,7 +123,7 @@ describe("appUtils", () => {
     it("appends user credentials to replace host when different from defaults", () => {
       mockReadFileSync.mockReturnValueOnce(Buffer.from("url ${replace}/ch"));
 
-      const result = interfaceStr(
+      const result = servePlaylist(
         "/",
         defaultHeaders,
         "otherUser",
@@ -139,7 +139,7 @@ describe("appUtils", () => {
         throw new Error("file not found");
       });
 
-      const result = interfaceStr(
+      const result = servePlaylist(
         "/",
         defaultHeaders,
         "defaultUser",
@@ -161,7 +161,7 @@ describe("appUtils", () => {
       expect(result.code).toBe(200);
     });
 
-    it("fetches URL via getAndroidURL720p when no credentials", async () => {
+    it("fetches URL via getAndroidUrl720p when no credentials", async () => {
       mockGetAndroidURL720p.mockResolvedValueOnce({
         url: "http://play.example.com/stream",
         rateType: 3,
@@ -173,10 +173,10 @@ describe("appUtils", () => {
 
       expect(mockGetAndroidURL720p).toHaveBeenCalledWith("123456");
       expect(result.code).toBe(302);
-      expect(result.playURL).toBe("http://final.example.com/stream");
+      expect(result.playUrl).toBe("http://final.example.com/stream");
     });
 
-    it("fetches URL via getAndroidURL with credentials", async () => {
+    it("fetches URL via getAndroidUrl with credentials", async () => {
       mockGetAndroidURL.mockResolvedValueOnce({
         url: "http://play.example.com/stream",
         rateType: 4,
@@ -217,7 +217,7 @@ describe("appUtils", () => {
       mockGet302URL.mockResolvedValueOnce("http://final.example.com/stream");
 
       const result = await channel("/400001?key=val", "", "");
-      expect(result.playURL).toContain("key=val");
+      expect(result.playUrl).toContain("key=val");
     });
 
     it("handles fetch error gracefully", async () => {

@@ -6,19 +6,19 @@ vi.mock("../../src/utils/net.js", () => ({
 
 vi.mock("../../src/utils/time.js", () => ({
   getDateString: vi.fn(() => "20260228"),
-  getDateTimeString: vi.fn(() => "20260228143045"),
+  getCompactDateTime: vi.fn(() => "20260228143045"),
 }));
 
-vi.mock("../../src/utils/fileUtil.js", () => ({
+vi.mock("../../src/utils/file_util.js", () => ({
   appendFileSync: vi.fn(),
 }));
 
-vi.mock("../../src/utils/datas.js", () => ({
+vi.mock("../../src/utils/static_data.js", () => ({
   cntvNames: { CCTV1综合: "cctv1" } as Record<string, string>,
 }));
 
 import { fetchUrl } from "../../src/utils/net.js";
-import { appendFileSync } from "../../src/utils/fileUtil.js";
+import { appendFileSync } from "../../src/utils/file_util.js";
 import { updateEpgData } from "../../src/utils/epg.js";
 import type { ChannelInfo } from "../../src/types/index.js";
 
@@ -32,13 +32,13 @@ beforeEach(() => {
 describe("epg", () => {
   describe("updateEpgData", () => {
     const miguProgram: ChannelInfo = {
-      pID: "pid001",
+      pid: "pid001",
       name: "TestChannel",
       pics: { highResolutionH: "" },
     };
 
     const cntvProgram: ChannelInfo = {
-      pID: "pid002",
+      pid: "pid002",
       name: "CCTV1综合",
       pics: { highResolutionH: "" },
     };
@@ -49,7 +49,7 @@ describe("epg", () => {
           program: [
             {
               content: [
-                { contName: "News", startTime: 1000000, endTime: 1003600 },
+                { programName: "News", startTime: 1000000, endTime: 1003600 },
               ],
             },
           ],
@@ -111,7 +111,7 @@ describe("epg", () => {
             {
               content: [
                 {
-                  contName: "Tom & Jerry <Live>",
+                  programName: "Tom & Jerry <Live>",
                   startTime: 1000000,
                   endTime: 1003600,
                 },
@@ -127,7 +127,7 @@ describe("epg", () => {
       expect(programXml).toContain("Tom &amp; Jerry &lt;Live&gt;");
     });
 
-    it("passes custom timeout and githubAnd8 offset", async () => {
+    it("passes custom timeout and timezoneOffsetMs offset", async () => {
       mockFetchUrl.mockResolvedValueOnce({
         body: { program: [{ content: [] }] },
       });

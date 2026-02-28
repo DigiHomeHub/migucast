@@ -4,14 +4,14 @@ vi.mock("../../src/utils/net.js", () => ({
   fetchUrl: vi.fn(),
 }));
 
-vi.mock("../../src/utils/EncryUtils.js", () => ({
-  AESencrypt: vi.fn(() => "mockEncrypted"),
-  getStringMD5: vi.fn(() => "mockMD5"),
-  RSAencrypt: vi.fn(() => "mockRSASign"),
+vi.mock("../../src/utils/crypto_utils.js", () => ({
+  aesEncrypt: vi.fn(() => "mockEncrypted"),
+  getStringMd5: vi.fn(() => "mockMD5"),
+  rsaSign: vi.fn(() => "mockRSASign"),
 }));
 
 import { fetchUrl } from "../../src/utils/net.js";
-import refreshToken from "../../src/utils/refreshToken.js";
+import refreshToken from "../../src/utils/refresh_token.js";
 
 const mockFetchUrl = vi.mocked(fetchUrl);
 
@@ -19,7 +19,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("refreshToken", () => {
+describe("refresh_token", () => {
   it("returns false when userId is empty", async () => {
     const result = await refreshToken("", "someToken");
     expect(result).toBe(false);

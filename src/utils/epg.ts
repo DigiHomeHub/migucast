@@ -5,14 +5,14 @@
  *   - CNTV's public EPG API (for CCTV-branded channels)
  * Outputs XMLTV-formatted `<channel>` and `<programme>` elements to a file.
  */
-import { getDateString, getDateTimeString } from "./time.js";
-import { appendFileSync } from "./fileUtil.js";
-import { cntvNames } from "./datas.js";
+import { getDateString, getCompactDateTime } from "./time.js";
+import { appendFileSync } from "./file_util.js";
+import { cntvNames } from "./static_data.js";
 import { fetchUrl } from "./net.js";
 import type { ChannelInfo } from "../types/index.js";
 
 interface EpgItem {
-  contName: string;
+  programName: string;
   startTime: number;
   endTime: number;
 }
@@ -27,9 +27,9 @@ interface CntvEpgItem {
 async function fetchMiguEpg(
   programId: string,
   timeout: number = 6000,
-  githubAnd8: number = 0,
+  timezoneOffsetMs: number = 0,
 ): Promise<EpgItem[] | undefined> {
-  const date = new Date(Date.now() + githubAnd8);
+  const date = new Date(Date.now() + timezoneOffsetMs);
   const today = getDateString(date);
   const resp = (await fetchUrl(
     `https://program-sc.miguvideo.com/live/v2/tv-programs-data/${programId}/${today}`,
@@ -54,9 +54,9 @@ async function writeEpgFromMigu(
   program: ChannelInfo,
   filePath: string,
   timeout: number = 6000,
-  githubAnd8: number = 0,
+  timezoneOffsetMs: number = 0,
 ): Promise<boolean> {
-  const epgData = await fetchMiguEpg(program.pID, timeout, githubAnd8);
+  const epgData = await fetchMiguEpg(program.pid, timeout, timezoneOffsetMs);
   if (!epgData) {
     return false;
   }
@@ -70,11 +70,11 @@ async function writeEpgFromMigu(
 
   for (let i = 0; i < epgData.length; i++) {
     const item = epgData[i]!;
-    const contName = escapeXml(item.contName);
+    const programName = escapeXml(item.programName);
     appendFileSync(
       filePath,
-      `    <programme channel="${program.name}" start="${getDateTimeString(new Date(item.startTime + githubAnd8))} +0800" stop="${getDateTimeString(new Date(item.endTime + githubAnd8))} +0800">\n` +
-        `        <title lang="zh">${contName}</title>\n` +
+      `    <programme channel="${program.name}" start="${getCompactDateTime(new Date(item.startTime + timezoneOffsetMs))} +0800" stop="${getCompactDateTime(new Date(item.endTime + timezoneOffsetMs))} +0800">\n` +
+        `        <title lang="zh">${programName}</title>\n` +
         `    </programme>\n`,
     );
   }
@@ -86,9 +86,9 @@ async function writeEpgFromCntv(
   program: ChannelInfo,
   filePath: string,
   timeout: number = 6000,
-  githubAnd8: number = 0,
+  timezoneOffsetMs: number = 0,
 ): Promise<boolean> {
-  const date = new Date(Date.now() + githubAnd8);
+  const date = new Date(Date.now() + timezoneOffsetMs);
   const today = getDateString(date);
   const cntvName = cntvNames[program.name];
   if (!cntvName) return false;
@@ -113,11 +113,11 @@ async function writeEpgFromCntv(
 
   for (let i = 0; i < epgData.length; i++) {
     const item = epgData[i]!;
-    const contName = escapeXml(item.t);
+    const programName = escapeXml(item.t);
     appendFileSync(
       filePath,
-      `    <programme channel="${program.name}" start="${getDateTimeString(new Date(item.st * 1000 + githubAnd8))} +0800" stop="${getDateTimeString(new Date(item.et * 1000 + githubAnd8))} +0800">\n` +
-        `        <title lang="zh">${contName}</title>\n` +
+      `    <programme channel="${program.name}" start="${getCompactDateTime(new Date(item.st * 1000 + timezoneOffsetMs))} +0800" stop="${getCompactDateTime(new Date(item.et * 1000 + timezoneOffsetMs))} +0800">\n` +
+        `        <title lang="zh">${programName}</title>\n` +
         `    </programme>\n`,
     );
   }
@@ -129,12 +129,12 @@ async function updateEpgData(
   program: ChannelInfo,
   filePath: string,
   timeout: number = 6000,
-  githubAnd8: number = 0,
+  timezoneOffsetMs: number = 0,
 ): Promise<boolean> {
   if (cntvNames[program.name]) {
-    return writeEpgFromCntv(program, filePath, timeout, githubAnd8);
+    return writeEpgFromCntv(program, filePath, timeout, timezoneOffsetMs);
   }
-  return writeEpgFromMigu(program, filePath, timeout, githubAnd8);
+  return writeEpgFromMigu(program, filePath, timeout, timezoneOffsetMs);
 }
 
 export { updateEpgData };

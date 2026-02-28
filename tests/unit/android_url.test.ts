@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../../src/config.js", () => ({
-  enableHDR: false,
+  enableHdr: false,
   enableH265: false,
   debug: false,
 }));
@@ -14,26 +14,26 @@ vi.mock("../../src/utils/net.js", () => ({
   fetchUrl: vi.fn(),
 }));
 
-vi.mock("../../src/utils/ddCalcuURL.js", () => ({
-  getddCalcuURL: vi.fn(
+vi.mock("../../src/utils/dd_calcu_url.js", () => ({
+  getDdCalcuUrl: vi.fn(
     (url: string) => url + "&ddCalcu=mocked&sv=10004&ct=android",
   ),
-  getddCalcuURL720p: vi.fn(
+  getDdCalcuUrl720p: vi.fn(
     (url: string) => url + "&ddCalcu=mocked720p&sv=10004&ct=android",
   ),
 }));
 
-vi.mock("../../src/utils/fetchList.js", () => ({
+vi.mock("../../src/utils/channel_list.js", () => ({
   delay: vi.fn(() => Promise.resolve()),
 }));
 
 import { fetchUrl } from "../../src/utils/net.js";
 import {
-  getAndroidURL,
-  getAndroidURL720p,
-  get302URL,
+  getAndroidUrl,
+  getAndroidUrl720p,
+  resolveRedirectUrl,
   printLoginInfo,
-} from "../../src/utils/androidURL.js";
+} from "../../src/utils/android_url.js";
 
 const mockFetchUrl = vi.mocked(fetchUrl);
 
@@ -41,10 +41,10 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("androidURL", () => {
-  describe("getAndroidURL", () => {
+describe("android_url", () => {
+  describe("getAndroidUrl", () => {
     it("returns empty result when rateType <= 1", async () => {
-      const result = await getAndroidURL("user1", "token1", "pid1", 1);
+      const result = await getAndroidUrl("user1", "token1", "pid1", 1);
       expect(result).toEqual({ url: "", rateType: 0, content: null });
       expect(mockFetchUrl).not.toHaveBeenCalled();
     });
@@ -60,7 +60,7 @@ describe("androidURL", () => {
         },
       });
 
-      const result = await getAndroidURL("user1", "token1", "pid1", 4);
+      const result = await getAndroidUrl("user1", "token1", "pid1", 4);
 
       expect(result.url).toContain("&ddCalcu=mocked");
       expect(result.rateType).toBe(4);
@@ -71,7 +71,7 @@ describe("androidURL", () => {
         body: { urlInfo: {} },
       });
 
-      const result = await getAndroidURL("user1", "token1", "pid1", 4);
+      const result = await getAndroidUrl("user1", "token1", "pid1", 4);
       expect(result.url).toBe("");
       expect(result.rateType).toBe(0);
     });
@@ -92,7 +92,7 @@ describe("androidURL", () => {
           },
         });
 
-      const result = await getAndroidURL("user1", "token1", "pid1", 8);
+      const result = await getAndroidUrl("user1", "token1", "pid1", 8);
 
       expect(mockFetchUrl).toHaveBeenCalledTimes(2);
       expect(result.url).toContain("&ddCalcu=mocked");
@@ -118,17 +118,20 @@ describe("androidURL", () => {
           },
         });
 
-      const result = await getAndroidURL("user1", "token1", "pid1", 8);
+      const result = await getAndroidUrl("user1", "token1", "pid1", 8);
       expect(mockFetchUrl).toHaveBeenCalledTimes(3);
       expect(result.rateType).toBe(3);
     });
 
     it("does not send auth headers when rateType=2", async () => {
       mockFetchUrl.mockResolvedValueOnce({
-        body: { urlInfo: { url: "http://x?puData=y", rateType: "2" }, content: {} },
+        body: {
+          urlInfo: { url: "http://x?puData=y", rateType: "2" },
+          content: {},
+        },
       });
 
-      await getAndroidURL("user1", "token1", "pid1", 2);
+      await getAndroidUrl("user1", "token1", "pid1", 2);
 
       const callOpts = mockFetchUrl.mock.calls[0]![1] as RequestInit;
       const headers = callOpts.headers as Record<string, string>;
@@ -136,7 +139,7 @@ describe("androidURL", () => {
     });
   });
 
-  describe("getAndroidURL720p", () => {
+  describe("getAndroidUrl720p", () => {
     it("returns encrypted URL on success", async () => {
       mockFetchUrl.mockResolvedValueOnce({
         body: {
@@ -148,7 +151,7 @@ describe("androidURL", () => {
         },
       });
 
-      const result = await getAndroidURL720p("pid1");
+      const result = await getAndroidUrl720p("pid1");
 
       expect(result.url).toContain("&ddCalcu=mocked720p");
       expect(result.rateType).toBe(3);
@@ -159,31 +162,43 @@ describe("androidURL", () => {
         body: { urlInfo: {} },
       });
 
-      const result = await getAndroidURL720p("pid1");
+      const result = await getAndroidUrl720p("pid1");
       expect(result.url).toBe("");
     });
   });
 
-  describe("get302URL", () => {
+  describe("resolveRedirectUrl", () => {
     it("follows 302 redirect and returns Location", async () => {
       vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
-        headers: new Headers({ Location: "http://final.example.com/stream.m3u8" }),
+        headers: new Headers({
+          Location: "http://final.example.com/stream.m3u8",
+        }),
       } as Response);
 
-      const result = await get302URL({ url: "http://redir.example.com", rateType: 3, content: null });
+      const result = await resolveRedirectUrl({
+        url: "http://redir.example.com",
+        rateType: 3,
+        content: null,
+      });
       expect(result).toBe("http://final.example.com/stream.m3u8");
     });
 
     it("skips bofang URLs", async () => {
       vi.spyOn(globalThis, "fetch")
         .mockResolvedValueOnce({
-          headers: new Headers({ Location: "http://bofang.example.com/stream" }),
+          headers: new Headers({
+            Location: "http://bofang.example.com/stream",
+          }),
         } as Response)
         .mockResolvedValueOnce({
           headers: new Headers({ Location: "http://good.example.com/stream" }),
         } as Response);
 
-      const result = await get302URL({ url: "http://redir.example.com", rateType: 3, content: null });
+      const result = await resolveRedirectUrl({
+        url: "http://redir.example.com",
+        rateType: 3,
+        content: null,
+      });
       expect(result).toBe("http://good.example.com/stream");
     });
 
@@ -193,7 +208,11 @@ describe("androidURL", () => {
         headers: new Headers({}),
       } as Response);
 
-      const result = await get302URL({ url: "http://redir.example.com", rateType: 3, content: null });
+      const result = await resolveRedirectUrl({
+        url: "http://redir.example.com",
+        rateType: 3,
+        content: null,
+      });
       expect(result).toBe("");
     });
 
@@ -201,7 +220,11 @@ describe("androidURL", () => {
       vi.spyOn(console, "log").mockImplementation(() => {});
       vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("fail"));
 
-      const result = await get302URL({ url: "http://redir.example.com", rateType: 3, content: null });
+      const result = await resolveRedirectUrl({
+        url: "http://redir.example.com",
+        rateType: 3,
+        content: null,
+      });
       expect(result).toBe("");
     });
   });
@@ -228,7 +251,11 @@ describe("androidURL", () => {
         rateType: 0,
         content: {
           body: {
-            auth: { logined: true, authResult: "FAIL", resultDesc: "VIP required" },
+            auth: {
+              logined: true,
+              authResult: "FAIL",
+              resultDesc: "VIP required",
+            },
           },
         },
       });

@@ -78,7 +78,7 @@ async function initWasm(wasmURL: string): Promise<WasmExports> {
   return instance.exports as unknown as WasmExports;
 }
 
-function getEncryptURL(exports: WasmExports, videoURL: string): string {
+function getEncryptUrl(exports: WasmExports, videoURL: string): string {
   const memory = exports.k;
   const memoryView = new Uint8Array(memory.buffer);
   const getEncrypt = exports.m;
@@ -89,7 +89,7 @@ function getEncryptURL(exports: WasmExports, videoURL: string): string {
  * Core signing algorithm: interleaves `puData` characters with platform-specific
  * key lookups derived from date, program ID, and user ID to produce a tamper-proof token.
  */
-function getddCalcu(
+function getDdCalcu(
   puData: string,
   programId: string,
   clientType: ClientType,
@@ -147,14 +147,14 @@ function getddCalcu(
 }
 
 /** Appends the `ddCalcu` anti-tamper token and platform suffix to a playback URL. */
-function getddCalcuURL(
-  puDataURL: string,
+function getDdCalcuUrl(
+  puDataUrl: string,
   programId: string,
   clientType: ClientType,
   rateType: string | number,
   urlUserId: string,
 ): string {
-  if (!puDataURL || !programId) {
+  if (!puDataUrl || !programId) {
     return "";
   }
 
@@ -162,10 +162,10 @@ function getddCalcuURL(
     return "";
   }
 
-  const puData = puDataURL.split("&puData=")[1];
+  const puData = puDataUrl.split("&puData=")[1];
   if (!puData) return "";
 
-  const ddCalcu = getddCalcu(
+  const ddCalcu = getDdCalcu(
     puData,
     programId,
     clientType,
@@ -174,11 +174,11 @@ function getddCalcuURL(
   );
   const suffix = list[clientType].suffix;
 
-  return `${puDataURL}&ddCalcu=${ddCalcu}${suffix}`;
+  return `${puDataUrl}&ddCalcu=${ddCalcu}${suffix}`;
 }
 
 /** Simplified 720p signing variant with fixed Android keys (no user credentials required). */
-function getddCalcu720p(puData: string, programId: string): string {
+function getDdCalcu720p(puData: string, programId: string): string {
   if (!puData || !programId) {
     return "";
   }
@@ -207,16 +207,16 @@ function getddCalcu720p(puData: string, programId: string): string {
 }
 
 /** Appends the 720p `ddCalcu` token to a playback URL (always uses Android suffix). */
-function getddCalcuURL720p(puDataURL: string, programId: string): string {
-  if (!puDataURL || !programId) {
+function getDdCalcuUrl720p(puDataUrl: string, programId: string): string {
+  if (!puDataUrl || !programId) {
     return "";
   }
 
-  const puData = puDataURL.split("&puData=")[1];
+  const puData = puDataUrl.split("&puData=")[1];
   if (!puData) return "";
 
-  const ddCalcu = getddCalcu720p(puData, programId);
-  return `${puDataURL}&ddCalcu=${ddCalcu}&sv=10004&ct=android`;
+  const ddCalcu = getDdCalcu720p(puData, programId);
+  return `${puDataUrl}&ddCalcu=${ddCalcu}&sv=10004&ct=android`;
 }
 
-export { initWasm, getEncryptURL, getddCalcuURL, getddCalcuURL720p };
+export { initWasm, getEncryptUrl, getDdCalcuUrl, getDdCalcuUrl720p };

@@ -25,7 +25,7 @@ export const AppConfigSchema = z.object({
     .string()
     .regex(/^[a-zA-Z0-9]*$/)
     .default(""),
-  enableHDR: envBoolean(true),
+  enableHdr: envBoolean(true),
   enableH265: envBoolean(true),
   programInfoUpdateInterval: z.coerce.number().int().positive().default(6),
 });
@@ -38,7 +38,7 @@ export const config = AppConfigSchema.parse({
   rateType: process.env.mrateType,
   debug: process.env.mdebug,
   pass: process.env.mpass,
-  enableHDR: process.env.menableHDR,
+  enableHdr: process.env.menableHDR,
   enableH265: process.env.menableH265,
   programInfoUpdateInterval: process.env.mupdateInterval,
 });
@@ -51,7 +51,7 @@ export const {
   rateType,
   debug,
   pass,
-  enableHDR,
+  enableHdr,
   enableH265,
   programInfoUpdateInterval,
 } = config;

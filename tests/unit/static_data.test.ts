@@ -1,7 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { cntvNames, domainWhiteList, repoLinkUpdateTimestamp } from "../../src/utils/datas.js";
+import {
+  cntvNames,
+  domainWhiteList,
+  repoLinkUpdateTimestamp,
+} from "../../src/utils/static_data.js";
 
-describe("datas", () => {
+describe("static_data", () => {
   describe("cntvNames", () => {
     it("maps CCTV channel display names to identifiers", () => {
       expect(cntvNames["CCTV1综合"]).toBe("cctv1");

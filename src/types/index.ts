@@ -12,7 +12,7 @@ export interface AppConfig {
   rateType: number;
   debug: boolean;
   pass: string;
-  enableHDR: boolean;
+  enableHdr: boolean;
   enableH265: boolean;
   programInfoUpdateInterval: number;
 }
@@ -23,7 +23,7 @@ export interface ChannelPics {
 }
 
 export interface ChannelInfo {
-  pID: string;
+  pid: string;
   name: string;
   pics: ChannelPics;
   [key: string]: unknown;
@@ -31,44 +31,44 @@ export interface ChannelInfo {
 
 export interface CategoryData {
   name: string;
-  vomsID: string;
+  vomsId: string;
   dataList: ChannelInfo[];
   [key: string]: unknown;
 }
 
-export interface InterfaceResult {
+export interface PlaylistResult {
   content: string | Buffer | null;
   contentType: string;
 }
 
 export interface ChannelResult {
   code: number;
-  pID: string;
+  pid: string;
   desc: string;
-  playURL: string;
+  playUrl: string;
 }
 
-export interface AndroidURLResult {
+export interface AndroidUrlResult {
   url: string;
   rateType: number;
   content: ApiResponse | null;
 }
 
 export interface CacheEntry {
-  valTime: number;
+  expiresAt: number;
   url: string;
   content: ApiResponse | null;
 }
 
-export interface CacheResult {
+export interface CacheLookupResult {
   haveCache: boolean;
   code: number;
-  pID: string;
-  playURL: string;
+  pid: string;
+  playUrl: string;
   cacheDesc: string;
 }
 
-export interface SaltSign {
+export interface SaltAndSign {
   salt: number;
   sign: string;
 }
@@ -94,7 +94,7 @@ export interface ZbproResult {
   data: ZbproChannel[];
 }
 
-export interface ZbproURLResult {
+export interface ZbproUrlResult {
   m3u: string;
   txt: string;
 }
