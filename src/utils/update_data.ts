@@ -63,6 +63,14 @@ async function updateTV(hours: number): Promise<void> {
     appendFile(interfaceTXTPath, `${datas[i]!.name},#genre#\n`);
     for (let j = 0; j < data.length; j++) {
       const item = data[j]!;
+      if (j === 0 && i === 0) {
+        printYellow(
+          `[diag] update_data item[0] keys: ${Object.keys(item).join(", ")}`,
+        );
+        printYellow(
+          `[diag] update_data item[0] pid=${item.pid}, name=${item.name}`,
+        );
+      }
       await updateEpgData(item, epgFile);
       appendFile(
         interfacePath,
@@ -94,10 +102,10 @@ interface PEResult {
   body?: {
     endTime?: number;
     keyword?: string;
-    replayList?: Array<{ name: string; pid: string }>;
+    replayList?: Array<{ name: string; pID: string }>;
     multiPlayList?: {
-      replayList?: Array<{ name: string; pid: string }>;
-      liveList?: Array<{ name: string; pid: string; startTimeStr?: string }>;
+      replayList?: Array<{ name: string; pID: string }>;
+      liveList?: Array<{ name: string; pID: string; startTimeStr?: string }>;
       preList?: Array<{ startTimeStr?: string }>;
     };
     days?: string[];
@@ -183,11 +191,11 @@ async function updatePE(_hours: number): Promise<void> {
               const competitionDesc = `${data.competitionName} ${pkInfoTitle} ${replay.name} ${timeStr}`;
               appendFileSync(
                 interfacePath,
-                `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" group-title="Sports-${relativeDate}",${competitionDesc}\n\${replace}/${replay.pid}\n`,
+                `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" group-title="Sports-${relativeDate}",${competitionDesc}\n\${replace}/${replay.pID}\n`,
               );
               appendFileSync(
                 interfaceTXTPath,
-                `${competitionDesc},\${replace}/${replay.pid}\n`,
+                `${competitionDesc},\${replace}/${replay.pID}\n`,
               );
             }
           }
@@ -206,11 +214,11 @@ async function updatePE(_hours: number): Promise<void> {
           const competitionDesc = `${data.competitionName} ${pkInfoTitle} ${live.name} ${live.startTimeStr.substring(11, 16)}`;
           appendFileSync(
             interfacePath,
-            `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" group-title="Sports-${relativeDate}",${competitionDesc}\n\${replace}/${live.pid}\n`,
+            `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" group-title="Sports-${relativeDate}",${competitionDesc}\n\${replace}/${live.pID}\n`,
           );
           appendFileSync(
             interfaceTXTPath,
-            `${competitionDesc},\${replace}/${live.pid}\n`,
+            `${competitionDesc},\${replace}/${live.pID}\n`,
           );
         }
       } catch {

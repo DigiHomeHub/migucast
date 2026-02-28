@@ -11,6 +11,13 @@ import { cntvNames } from "./static_data.js";
 import { fetchUrl } from "./net.js";
 import type { ChannelInfo } from "../types/index.js";
 
+// Raw API response type (Migu EPG uses `contName`)
+interface RawEpgItem {
+  contName: string;
+  startTime: number;
+  endTime: number;
+}
+
 interface EpgItem {
   programName: string;
   startTime: number;
@@ -21,6 +28,10 @@ interface CntvEpgItem {
   t: string;
   st: number;
   et: number;
+}
+
+function mapEpgItem(raw: RawEpgItem): EpgItem {
+  return { ...raw, programName: raw.contName };
 }
 
 /** Fetches today's program schedule from the Migu EPG API for a given program ID. */
@@ -35,8 +46,8 @@ async function fetchMiguEpg(
     `https://program-sc.miguvideo.com/live/v2/tv-programs-data/${programId}/${today}`,
     {},
     timeout,
-  )) as { body?: { program?: Array<{ content?: EpgItem[] }> } };
-  return resp.body?.program?.[0]?.content;
+  )) as { body?: { program?: Array<{ content?: RawEpgItem[] }> } };
+  return resp.body?.program?.[0]?.content?.map(mapEpgItem);
 }
 
 /** Escapes the five XML special characters to their entity references. */
