@@ -12,6 +12,7 @@ import {
   writeFile,
 } from "../utils/file_util.js";
 import { updateEpgData } from "../utils/epg.js";
+import { dataDir } from "../config.js";
 import { logger } from "../logger.js";
 
 async function fetchURLByAndroid720p(): Promise<void> {
@@ -20,12 +21,12 @@ async function fetchURLByAndroid720p(): Promise<void> {
   const datas = await fetchCategoryChannels();
   logger.info("Data fetched successfully!");
 
-  const path = process.cwd() + "/interface.txt.bak";
+  const path = dataDir + "/playlist.m3u.bak";
   writeFile(path, "");
 
   logger.warn("Updating...");
 
-  const epgFile = process.cwd() + "/epg.xml.bak";
+  const epgFile = dataDir + "/epg.xml.bak";
   writeFile(
     epgFile,
     `<?xml version="1.0" encoding="UTF-8"?>\n` +

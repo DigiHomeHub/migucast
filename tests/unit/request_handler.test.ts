@@ -9,6 +9,7 @@ vi.mock("../../src/config.js", () => ({
   debug: false,
   logLevel: "info",
   logFile: undefined,
+  dataDir: process.cwd(),
 }));
 
 vi.mock("../../src/utils/time.js", () => ({
@@ -65,7 +66,7 @@ describe("request_handler", () => {
   describe("servePlaylist", () => {
     const defaultHeaders: IncomingHttpHeaders = { host: "localhost:1234" };
 
-    it("reads and returns interface.txt for root URL", () => {
+    it("reads and returns playlist.m3u for root URL", () => {
       const result = servePlaylist(
         "/",
         defaultHeaders,
@@ -112,9 +113,29 @@ describe("request_handler", () => {
       expect(result.contentType).toBe("audio/x-mpegurl; charset=utf-8");
     });
 
+    it("returns m3u content type for /playlist.m3u", () => {
+      const result = servePlaylist(
+        "/playlist.m3u",
+        defaultHeaders,
+        "defaultUser",
+        "defaultToken",
+      );
+      expect(result.contentType).toBe("audio/x-mpegurl; charset=utf-8");
+    });
+
     it("returns txt file for /txt", () => {
       const result = servePlaylist(
         "/txt",
+        defaultHeaders,
+        "defaultUser",
+        "defaultToken",
+      );
+      expect(result.contentType).toBe("text/plain;charset=UTF-8");
+    });
+
+    it("returns txt file for /playlist.txt", () => {
+      const result = servePlaylist(
+        "/playlist.txt",
         defaultHeaders,
         "defaultUser",
         "defaultToken",

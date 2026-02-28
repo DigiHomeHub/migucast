@@ -4,6 +4,7 @@
  * Designed for GitHub Actions or similar CI environments (runs every 6 hours).
  */
 import { logger } from "../logger.js";
+import { dataDir } from "../config.js";
 import { appendFileSync, renameFileSync } from "../utils/file_util.js";
 import { updateEpgData } from "../utils/epg.js";
 import { writeFileSync } from "node:fs";
@@ -42,7 +43,7 @@ if (!(start.getHours() % 6)) {
   logger.info("Data fetched successfully!");
 
   try {
-    const epgFile = `${process.cwd()}/epg.xml.bak`;
+    const epgFile = `${dataDir}/epg.xml.bak`;
 
     writeFileSync(
       epgFile,

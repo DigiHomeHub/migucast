@@ -90,22 +90,23 @@ const server = http.createServer((req, res) => {
         return;
       }
 
-      const interfaceList = "/,/interface.txt,/m3u,/txt,/epg.xml";
+      const playlistRoutes =
+        "/,/interface.txt,/m3u,/txt,/epg.xml,/playlist.m3u,/playlist.txt";
 
-      if (interfaceList.indexOf(url) !== -1) {
-        const interfaceObj = servePlaylist(url, headers, urlUserId, urlToken);
-        if (interfaceObj.content === null) {
-          interfaceObj.content = "Fetch failed";
+      if (playlistRoutes.indexOf(url) !== -1) {
+        const playlistResult = servePlaylist(url, headers, urlUserId, urlToken);
+        if (playlistResult.content === null) {
+          playlistResult.content = "Fetch failed";
         }
-        res.setHeader("Content-Type", interfaceObj.contentType);
-        if (url === "/m3u") {
+        res.setHeader("Content-Type", playlistResult.contentType);
+        if (url === "/m3u" || url === "/playlist.m3u") {
           res.setHeader(
             "content-disposition",
-            'inline; filename="interface.m3u"',
+            'inline; filename="playlist.m3u"',
           );
         }
         res.statusCode = 200;
-        res.end(interfaceObj.content);
+        res.end(playlistResult.content);
         return;
       }
 

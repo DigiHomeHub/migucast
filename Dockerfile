@@ -15,11 +15,14 @@ WORKDIR /migu
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
-COPY interface.txt interfaceTXT.txt epg.xml ./
 
 ENV TZ=Asia/Shanghai
 RUN apk add --no-cache tzdata \
   && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
   && echo $TZ > /etc/timezone
+
+RUN mkdir -p /data
+ENV mdataDir=/data
+VOLUME /data
 
 CMD ["node", "dist/app.js"]
