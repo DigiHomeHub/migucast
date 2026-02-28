@@ -95,7 +95,7 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    const interfaceList = "/,/interface.txt,/m3u,/txt,/playback.xml";
+    const interfaceList = "/,/interface.txt,/m3u,/txt,/epg.xml";
 
     if (interfaceList.indexOf(url) !== -1) {
       const interfaceObj = interfaceStr(url, headers, urlUserId, urlToken);

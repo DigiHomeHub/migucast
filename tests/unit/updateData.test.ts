@@ -24,8 +24,8 @@ vi.mock("../../src/utils/fileUtil.js", () => ({
   renameFileSync: vi.fn(),
 }));
 
-vi.mock("../../src/utils/playback.js", () => ({
-  updatePlaybackData: vi.fn(() => Promise.resolve(true)),
+vi.mock("../../src/utils/epg.js", () => ({
+  updateEpgData: vi.fn(() => Promise.resolve(true)),
 }));
 
 vi.mock("../../src/utils/refreshToken.js", () => ({
@@ -131,7 +131,11 @@ describe("updateData", () => {
             endTime: Date.now() + 100000,
             multiPlayList: {
               liveList: [
-                { name: "Main feed", pID: "live001", startTimeStr: "2026-02-28 20:00" },
+                {
+                  name: "Main feed",
+                  pID: "live001",
+                  startTimeStr: "2026-02-28 20:00",
+                },
               ],
             },
           },
@@ -177,9 +181,7 @@ describe("updateData", () => {
         })
         .mockResolvedValueOnce({
           body: {
-            replayList: [
-              { name: "全场回放", pID: "replay003" },
-            ],
+            replayList: [{ name: "全场回放", pID: "replay003" }],
           },
         });
 

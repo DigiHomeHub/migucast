@@ -5,7 +5,7 @@
  */
 import { printGreen, printMagenta, printRed } from "../utils/colorOut.js";
 import { appendFileSync, renameFileSync } from "../utils/fileUtil.js";
-import { updatePlaybackData } from "../utils/playback.js";
+import { updateEpgData } from "../utils/epg.js";
 import { writeFileSync } from "node:fs";
 import { dataList } from "../utils/fetchList.js";
 import updateChannels from "../utils/zbpro.js";
@@ -42,26 +42,26 @@ if (!(start.getHours() % 6)) {
   printGreen("Data fetched successfully!");
 
   try {
-    const playbackFile = `${process.cwd()}/playback.xml.bak`;
+    const epgFile = `${process.cwd()}/epg.xml.bak`;
 
     writeFileSync(
-      playbackFile,
+      epgFile,
       `<?xml version="1.0" encoding="UTF-8"?>\n` +
         `<tv generator-info-name="Tak" generator-info-url="https://github.com/develop202/migu_video">\n`,
     );
-    printMagenta("Updating playback file...");
+    printMagenta("Updating EPG file...");
     for (const data of datas) {
       for (const item of data.dataList) {
-        await updatePlaybackData(item, playbackFile, 10000, 8 * 60 * 60 * 1000);
+        await updateEpgData(item, epgFile, 10000, 8 * 60 * 60 * 1000);
       }
     }
 
-    appendFileSync(playbackFile, `</tv>\n`);
-    renameFileSync(playbackFile, playbackFile.replace(".bak", ""));
+    appendFileSync(epgFile, `</tv>\n`);
+    renameFileSync(epgFile, epgFile.replace(".bak", ""));
 
-    printGreen("Playback file updated!");
+    printGreen("EPG file updated!");
   } catch {
-    printRed("Playback file update failed!");
+    printRed("EPG file update failed!");
   }
 }
 

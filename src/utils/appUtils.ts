@@ -43,8 +43,8 @@ function interfaceStr(
   };
   let fileName = process.cwd() + "/interface.txt";
   switch (url) {
-    case "/playback.xml":
-      fileName = process.cwd() + "/playback.xml";
+    case "/epg.xml":
+      fileName = process.cwd() + "/epg.xml";
       result.contentType = "text/xml;charset=UTF-8";
       break;
     case "/txt":
@@ -63,7 +63,7 @@ function interfaceStr(
     console.log(error);
     return result;
   }
-  if (url === "/playback.xml") {
+  if (url === "/epg.xml") {
     return result;
   }
 

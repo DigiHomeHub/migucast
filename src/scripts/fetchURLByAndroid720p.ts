@@ -1,6 +1,6 @@
 /**
  * Standalone script: generates static M3U and XMLTV files by fetching every
- * channel's playback URL via the anonymous Android 720p API.
+ * channel's stream URL via the anonymous Android 720p API.
  * Intended for CI/CD or cron-based playlist generation without user credentials.
  */
 import { dataList, delay } from "../utils/fetchList.js";
@@ -11,7 +11,7 @@ import {
   renameFileSync,
   writeFile,
 } from "../utils/fileUtil.js";
-import { updatePlaybackData } from "../utils/playback.js";
+import { updateEpgData } from "../utils/epg.js";
 import {
   printBlue,
   printGreen,
@@ -30,16 +30,16 @@ async function fetchURLByAndroid720p(): Promise<void> {
 
   printYellow("Updating...");
 
-  const playbackFile = process.cwd() + "/playback.xml.bak";
+  const epgFile = process.cwd() + "/epg.xml.bak";
   writeFile(
-    playbackFile,
+    epgFile,
     `<?xml version="1.0" encoding="UTF-8"?>\n` +
       `<tv generator-info-name="Tak" generator-info-url="https://github.com/develop202/migu_video">\n`,
   );
 
   appendFile(
     path,
-    `#EXTM3U x-tvg-url="https://gh-proxy.com/https://raw.githubusercontent.com/develop202/migu_video/refs/heads/main/playback.xml,https://hk.gh-proxy.org/raw.githubusercontent.com/develop202/migu_video/refs/heads/main/playback.xml,https://develop202.github.io/migu_video/playback.xml,https://raw.githubusercontents.com/develop202/migu_video/refs/heads/main/playback.xml" catchup="append" catchup-source="&playbackbegin=\${(b)yyyyMMddHHmmss}&playbackend=\${(e)yyyyMMddHHmmss}"\n`,
+    `#EXTM3U x-tvg-url="https://gh-proxy.com/https://raw.githubusercontent.com/develop202/migu_video/refs/heads/main/epg.xml,https://hk.gh-proxy.org/raw.githubusercontent.com/develop202/migu_video/refs/heads/main/epg.xml,https://develop202.github.io/migu_video/epg.xml,https://raw.githubusercontents.com/develop202/migu_video/refs/heads/main/epg.xml" catchup="append" catchup-source="&playbackbegin=\${(b)yyyyMMddHHmmss}&playbackend=\${(e)yyyyMMddHHmmss}"\n`,
   );
 
   for (let i = 0; i < datas.length; i++) {
@@ -48,7 +48,7 @@ async function fetchURLByAndroid720p(): Promise<void> {
 
     for (let j = 0; j < data.length; j++) {
       const item = data[j]!;
-      await updatePlaybackData(item, playbackFile);
+      await updateEpgData(item, epgFile);
 
       const resObj = await getAndroidURL720p(item.pID);
 
@@ -92,8 +92,8 @@ async function fetchURLByAndroid720p(): Promise<void> {
     }
   }
 
-  appendFileSync(playbackFile, `</tv>\n`);
-  renameFileSync(playbackFile, playbackFile.replace(".bak", ""));
+  appendFileSync(epgFile, `</tv>\n`);
+  renameFileSync(epgFile, epgFile.replace(".bak", ""));
   renameFileSync(path, path.replace(".bak", ""));
   const end = Date.now();
   printYellow(`Elapsed: ${(end - start) / 1000}s`);
