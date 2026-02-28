@@ -8,7 +8,7 @@ import { logger } from "../logger.js";
 import crypto from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
-import { debug } from "../config.js";
+import { dataDir, debug } from "../config.js";
 import { domainWhiteList, repoLinkUpdateTimestamp } from "./static_data.js";
 import { readFileSync } from "./file_util.js";
 import type { ZbproChannel, ZbproUrlResult } from "../types/index.js";
@@ -89,7 +89,7 @@ async function getAllURL(): Promise<ZbproUrlResult | number> {
         return;
       }
 
-      const data_jsPath = `${process.cwd()}/src/utils/datas.ts`;
+      const data_jsPath = `${process.cwd()}/src/utils/static_data.ts`;
       const datas_js = readFileSync(data_jsPath);
       writeFileSync(
         data_jsPath,
@@ -195,8 +195,8 @@ async function getAllURL(): Promise<ZbproUrlResult | number> {
 
 /** Orchestrates the full zbpro update: fetch → decrypt → write M3U and TXT files. Returns 0 on success. */
 async function updateChannels(): Promise<number> {
-  const m3uFilePath = `${process.cwd()}/interface.txt`;
-  const txtFilePath = `${process.cwd()}/interfaceTXT.txt`;
+  const m3uFilePath = `${dataDir}/playlist.m3u`;
+  const txtFilePath = `${dataDir}/playlist.txt`;
   const allURL = await getAllURL();
   if (typeof allURL === "number") {
     return allURL;

@@ -92,13 +92,16 @@ set mport=3000 && set mhost="http://localhost:3000" && pnpm start
 
 ## API 端点
 
-| 端点                            | 响应               |
-| ------------------------------- | ------------------ |
-| `GET /` 或 `GET /interface.txt` | M3U 播放列表       |
-| `GET /txt`                      | 纯文本频道列表     |
-| `GET /m3u`                      | M3U 文件下载       |
-| `GET /epg.xml`                  | XMLTV EPG 数据     |
-| `GET /:channelId`               | 302 重定向到直播流 |
+| 端点                    | 响应                          |
+| ----------------------- | ----------------------------- |
+| `GET /`                 | M3U 播放列表                  |
+| `GET /playlist.m3u`     | M3U 文件下载                  |
+| `GET /playlist.txt`     | 纯文本频道列表                |
+| `GET /epg.xml`          | XMLTV EPG 数据                |
+| `GET /:channelId`       | 302 重定向到直播流            |
+| `GET /interface.txt`    | `/` 的别名（旧路由兼容）     |
+| `GET /m3u`              | `/playlist.m3u` 的别名（旧路由兼容） |
+| `GET /txt`              | `/playlist.txt` 的别名（旧路由兼容） |
 
 设置 `mpass` 后，所有路径需添加密码前缀：`GET /:pass/...`
 

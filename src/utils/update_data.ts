@@ -14,7 +14,7 @@ import {
   writeFile,
 } from "./file_util.js";
 import { updateEpgData } from "./epg.js";
-import { host, token, userId } from "../config.js";
+import { dataDir, host, token, userId } from "../config.js";
 import refreshToken from "./refresh_token.js";
 import { logger } from "../logger.js";
 import { getDateString } from "./time.js";
@@ -32,11 +32,11 @@ async function updateTV(hours: number): Promise<void> {
   const datas = await fetchCategoryChannels();
   logger.info("TV data fetched successfully!");
 
-  const interfacePath = `${process.cwd()}/interface.txt.bak`;
-  const interfaceTXTPath = `${process.cwd()}/interfaceTXT.txt.bak`;
+  const m3uPath = `${dataDir}/playlist.m3u.bak`;
+  const txtPath = `${dataDir}/playlist.txt.bak`;
 
-  writeFile(interfacePath, "");
-  writeFile(interfaceTXTPath, "");
+  writeFile(m3uPath, "");
+  writeFile(txtPath, "");
 
   if (!(hours % 720)) {
     if (userId !== "" && token !== "") {
@@ -50,12 +50,12 @@ async function updateTV(hours: number): Promise<void> {
   }
 
   appendFile(
-    interfacePath,
+    m3uPath,
     `#EXTM3U x-tvg-url="\${replace}/epg.xml" catchup="append" catchup-source="?playbackbegin=\${(b)yyyyMMddHHmmss}&playbackend=\${(e)yyyyMMddHHmmss}"\n`,
   );
   logger.warn("Updating TV...");
 
-  const epgFile = `${process.cwd()}/epg.xml.bak`;
+  const epgFile = `${dataDir}/epg.xml.bak`;
   writeFile(
     epgFile,
     `<?xml version="1.0" encoding="UTF-8"?>\n` +
@@ -64,7 +64,7 @@ async function updateTV(hours: number): Promise<void> {
 
   for (let i = 0; i < datas.length; i++) {
     const data = datas[i]!.dataList;
-    appendFile(interfaceTXTPath, `${datas[i]!.name},#genre#\n`);
+    appendFile(txtPath, `${datas[i]!.name},#genre#\n`);
     for (let j = 0; j < data.length; j++) {
       const item = data[j]!;
       if (j === 0 && i === 0) {
@@ -77,18 +77,18 @@ async function updateTV(hours: number): Promise<void> {
       }
       await updateEpgData(item, epgFile);
       appendFile(
-        interfacePath,
+        m3uPath,
         `#EXTINF:-1 tvg-id="${item.name}" tvg-name="${item.name}" tvg-logo="${item.pics.highResolutionH}" group-title="${datas[i]!.name}",${item.name}\n\${replace}/${item.pid}\n`,
       );
-      appendFile(interfaceTXTPath, `${item.name},\${replace}/${item.pid}\n`);
+      appendFile(txtPath, `${item.name},\${replace}/${item.pid}\n`);
     }
     logger.info(`Category ###: ${datas[i]!.name} updated!`);
   }
 
   appendFileSync(epgFile, `</tv>\n`);
   renameFileSync(epgFile, epgFile.replace(".bak", ""));
-  renameFileSync(interfacePath, interfacePath.replace(".bak", ""));
-  renameFileSync(interfaceTXTPath, interfaceTXTPath.replace(".bak", ""));
+  renameFileSync(m3uPath, m3uPath.replace(".bak", ""));
+  renameFileSync(txtPath, txtPath.replace(".bak", ""));
   logger.info("TV update completed!");
   const end = Date.now();
   logger.warn(`TV update took ${(end - start) / 1000}s`);
@@ -105,19 +105,11 @@ async function updatePE(_hours: number): Promise<void> {
   }
   logger.info("PE data fetched successfully!");
 
-  copyFileSync(
-    `${process.cwd()}/interface.txt`,
-    `${process.cwd()}/interface.txt.bak`,
-    0,
-  );
-  copyFileSync(
-    `${process.cwd()}/interfaceTXT.txt`,
-    `${process.cwd()}/interfaceTXT.txt.bak`,
-    0,
-  );
+  copyFileSync(`${dataDir}/playlist.m3u`, `${dataDir}/playlist.m3u.bak`, 0);
+  copyFileSync(`${dataDir}/playlist.txt`, `${dataDir}/playlist.txt.bak`, 0);
 
-  const interfacePath = `${process.cwd()}/interface.txt.bak`;
-  const interfaceTXTPath = `${process.cwd()}/interfaceTXT.txt.bak`;
+  const m3uPath = `${dataDir}/playlist.m3u.bak`;
+  const txtPath = `${dataDir}/playlist.txt.bak`;
 
   logger.warn("Updating PE...");
 
@@ -133,7 +125,7 @@ async function updatePE(_hours: number): Promise<void> {
       relativeDate = "Tomorrow";
     }
 
-    appendFile(interfaceTXTPath, `Sports-${relativeDate},#genre#\n`);
+    appendFile(txtPath, `Sports-${relativeDate},#genre#\n`);
 
     const matchList = datas.body?.matchList?.[date];
     if (!matchList) continue;
@@ -174,11 +166,11 @@ async function updatePE(_hours: number): Promise<void> {
               }
               const competitionDesc = `${data.competitionName} ${pkInfoTitle} ${replay.name} ${timeStr}`;
               appendFileSync(
-                interfacePath,
+                m3uPath,
                 `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" group-title="Sports-${relativeDate}",${competitionDesc}\n\${replace}/${replay.pID}\n`,
               );
               appendFileSync(
-                interfaceTXTPath,
+                txtPath,
                 `${competitionDesc},\${replace}/${replay.pID}\n`,
               );
             }
@@ -195,11 +187,11 @@ async function updatePE(_hours: number): Promise<void> {
           }
           const competitionDesc = `${data.competitionName} ${pkInfoTitle} ${live.name} ${live.startTimeStr.substring(11, 16)}`;
           appendFileSync(
-            interfacePath,
+            m3uPath,
             `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" group-title="Sports-${relativeDate}",${competitionDesc}\n\${replace}/${live.pID}\n`,
           );
           appendFileSync(
-            interfaceTXTPath,
+            txtPath,
             `${competitionDesc},\${replace}/${live.pID}\n`,
           );
         }
@@ -212,8 +204,8 @@ async function updatePE(_hours: number): Promise<void> {
     logger.info(`Date ${date} updated!`);
   }
 
-  renameFileSync(interfacePath, interfacePath.replace(".bak", ""));
-  renameFileSync(interfaceTXTPath, interfaceTXTPath.replace(".bak", ""));
+  renameFileSync(m3uPath, m3uPath.replace(".bak", ""));
+  renameFileSync(txtPath, txtPath.replace(".bak", ""));
   logger.info("PE update completed!");
   const end = Date.now();
   logger.warn(`PE update took ${(end - start) / 1000}s`);

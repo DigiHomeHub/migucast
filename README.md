@@ -92,13 +92,16 @@ set mport=3000 && set mhost="http://localhost:3000" && pnpm start
 
 ## API Endpoints
 
-| Endpoint                        | Response                       |
-| ------------------------------- | ------------------------------ |
-| `GET /` or `GET /interface.txt` | M3U playlist                   |
-| `GET /txt`                      | Plain-text channel list        |
-| `GET /m3u`                      | M3U file download (attachment) |
-| `GET /epg.xml`                  | XMLTV EPG data                 |
-| `GET /:channelId`               | 302 redirect to live stream    |
+| Endpoint              | Response                       |
+| --------------------- | ------------------------------ |
+| `GET /`               | M3U playlist                   |
+| `GET /playlist.m3u`   | M3U file download (attachment) |
+| `GET /playlist.txt`   | Plain-text channel list        |
+| `GET /epg.xml`        | XMLTV EPG data                 |
+| `GET /:channelId`     | 302 redirect to live stream    |
+| `GET /interface.txt`  | Alias for `/` (legacy)         |
+| `GET /m3u`            | Alias for `/playlist.m3u` (legacy) |
+| `GET /txt`            | Alias for `/playlist.txt` (legacy) |
 
 When `mpass` is set, prefix all paths with the password: `GET /:pass/...`
 

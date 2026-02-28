@@ -11,7 +11,7 @@ import {
   printLoginInfo,
 } from "./android_url.js";
 import { readFileSync } from "./file_util.js";
-import { host, pass, rateType, token, userId } from "../config.js";
+import { dataDir, host, pass, rateType, token, userId } from "../config.js";
 import { logger } from "../logger.js";
 import type {
   AndroidUrlResult,
@@ -35,16 +35,18 @@ function servePlaylist(
     content: null,
     contentType: "text/plain;charset=UTF-8",
   };
-  let fileName = process.cwd() + "/interface.txt";
+  let fileName = dataDir + "/playlist.m3u";
   switch (url) {
     case "/epg.xml":
-      fileName = process.cwd() + "/epg.xml";
+      fileName = dataDir + "/epg.xml";
       result.contentType = "text/xml;charset=UTF-8";
       break;
     case "/txt":
-      fileName = process.cwd() + "/interfaceTXT.txt";
+    case "/playlist.txt":
+      fileName = dataDir + "/playlist.txt";
       break;
     case "/m3u":
+    case "/playlist.m3u":
       result.contentType = "audio/x-mpegurl; charset=utf-8";
       break;
     default:

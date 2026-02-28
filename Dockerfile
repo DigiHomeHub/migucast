@@ -21,4 +21,8 @@ RUN apk add --no-cache tzdata \
   && ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
   && echo $TZ > /etc/timezone
 
+RUN mkdir -p /data
+ENV mdataDir=/data
+VOLUME /data
+
 CMD ["node", "dist/app.js"]

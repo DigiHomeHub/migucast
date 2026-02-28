@@ -7,6 +7,7 @@ vi.mock("../../src/config.js", () => ({
   debug: false,
   logLevel: "info",
   logFile: undefined,
+  dataDir: process.cwd(),
 }));
 
 vi.mock("../../src/utils/time.js", () => ({

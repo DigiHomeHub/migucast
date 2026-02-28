@@ -32,9 +32,10 @@ export const AppConfigSchema = z.object({
     .enum(["silly", "trace", "debug", "info", "warn", "error", "fatal"])
     .default("info"),
   logFile: z.string().optional(),
+  dataDir: z.string().optional(),
 });
 
-export const config = AppConfigSchema.parse({
+const parsed = AppConfigSchema.parse({
   userId: process.env.muserId,
   token: process.env.mtoken,
   port: process.env.mport,
@@ -47,7 +48,18 @@ export const config = AppConfigSchema.parse({
   programInfoUpdateInterval: process.env.mupdateInterval,
   logLevel: process.env.mlogLevel,
   logFile: process.env.mlogFile,
+  dataDir: process.env.mdataDir,
 });
+
+/** Resolved data output directory — falls back to process.cwd() when mdataDir is unset. */
+export const dataDir: string = parsed.dataDir ?? process.cwd();
+
+export const config = {
+  ...parsed,
+  dataDir,
+  logFile:
+    parsed.logFile ?? (parsed.dataDir ? `${dataDir}/migucast.log` : undefined),
+};
 
 export const {
   userId,
