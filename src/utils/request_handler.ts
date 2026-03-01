@@ -1,8 +1,8 @@
 /**
  * Core HTTP request handler logic for the migucast server.
- * - `servePlaylist`: serves playlist files (M3U, TXT, XMLTV) with host-substitution
- * - `channel`: resolves a channel PID to a playback URL (with in-memory caching)
- * - `channelCache`: checks and returns cached playback URLs to avoid redundant API calls
+ * - `servePlaylist`: reads playlist/EPG content from storage and applies host-substitution
+ * - `channel`: resolves a channel PID to a playback URL (with cache via CachePort)
+ * - `channelCache`: checks and returns cached playback URLs
  */
 import {
   resolveRedirectUrl,
@@ -10,8 +10,8 @@ import {
   getAndroidUrl720p,
   printLoginInfo,
 } from "./android_url.js";
-import { readFileSync } from "./file_util.js";
-import { dataDir, host, pass, rateType, token, userId } from "../config.js";
+import { getStorage, getCache } from "../platform/context.js";
+import { host, pass, rateType, token, userId } from "../config.js";
 import { logger } from "../logger.js";
 import type {
   AndroidUrlResult,
@@ -20,30 +20,28 @@ import type {
   ChannelResult,
   PlaylistResult,
 } from "../types/index.js";
-import type { IncomingHttpHeaders } from "node:http";
 
-const urlCache: Record<string, CacheEntry> = {};
-
-/** Reads a playlist file and replaces the `${replace}` placeholder with the resolved host URL. */
-function servePlaylist(
+/** Reads playlist/EPG content from storage and replaces the `${replace}` placeholder with the resolved host URL. */
+async function servePlaylist(
   url: string,
-  headers: IncomingHttpHeaders,
+  headers: Record<string, string | undefined>,
   urlUserId: string,
   urlToken: string,
-): PlaylistResult {
+): Promise<PlaylistResult> {
   const result: PlaylistResult = {
     content: null,
     contentType: "text/plain;charset=UTF-8",
   };
-  let fileName = dataDir + "/playlist.m3u";
+
+  let storageKey = "playlist:m3u";
   switch (url) {
     case "/epg.xml":
-      fileName = dataDir + "/epg.xml";
+      storageKey = "epg:xml";
       result.contentType = "text/xml;charset=UTF-8";
       break;
     case "/txt":
     case "/playlist.txt":
-      fileName = dataDir + "/playlist.txt";
+      storageKey = "playlist:txt";
       break;
     case "/m3u":
     case "/playlist.m3u":
@@ -52,24 +50,28 @@ function servePlaylist(
     default:
       break;
   }
+
   try {
-    result.content = readFileSync(fileName);
+    const storage = getStorage();
+    result.content = await storage.get(storageKey);
   } catch (error) {
-    logger.error("Failed to read file");
+    logger.error("Failed to read from storage");
     logger.error(error);
     return result;
   }
+
   if (url === "/epg.xml") {
     return result;
   }
 
-  let replaceHost = `http://${headers.host}`;
+  const hostHeader = headers.host ?? headers.Host;
+  let replaceHost = `http://${hostHeader}`;
 
   if (
     host !== "" &&
     (headers["x-real-ip"] ||
       headers["x-forwarded-for"] ||
-      host.indexOf(headers.host ?? "") !== -1)
+      host.indexOf(hostHeader ?? "") !== -1)
   ) {
     replaceHost = host;
   }
@@ -82,7 +84,10 @@ function servePlaylist(
     replaceHost = `${replaceHost}/${urlUserId}/${urlToken}`;
   }
 
-  result.content = `${result.content}`.replaceAll("${replace}", replaceHost);
+  result.content = `${result.content ?? ""}`.replaceAll(
+    "${replace}",
+    replaceHost,
+  );
 
   return result;
 }
@@ -128,11 +133,11 @@ async function channel(
 
   logger.warn("Channel ID " + pid);
 
-  const cache = channelCache(pid, params);
-  if (cache.haveCache) {
-    result.code = cache.code;
-    result.playUrl = cache.playUrl;
-    result.desc = cache.cacheDesc;
+  const cacheResult = await channelCache(pid, params);
+  if (cacheResult.haveCache) {
+    result.code = cacheResult.code;
+    result.playUrl = cacheResult.playUrl;
+    result.desc = cacheResult.cacheDesc;
     return result;
   }
 
@@ -159,16 +164,19 @@ async function channel(
   printLoginInfo(resObj);
 
   logger.info(`Caching program ${pid}`);
-  let cacheTtlMs = 3 * 60 * 60 * 1000;
-  if (resObj.url === "") {
-    cacheTtlMs = 1 * 60 * 1000;
-  }
-
-  urlCache[pid] = {
-    expiresAt: Date.now() + cacheTtlMs,
+  const cacheTtlSeconds = resObj.url === "" ? 60 : 3 * 60 * 60;
+  const cacheEntry: CacheEntry = {
+    expiresAt: Date.now() + cacheTtlSeconds * 1000,
     url: resObj.url,
     content: resObj.content,
   };
+
+  try {
+    const cache = getCache();
+    await cache.set(pid, cacheEntry, cacheTtlSeconds);
+  } catch {
+    logger.warn("Cache write failed, proceeding without cache");
+  }
 
   if (resObj.url === "") {
     const contentObj = resObj.content as Record<string, unknown> | null;
@@ -195,20 +203,24 @@ async function channel(
   return result;
 }
 
-/** Looks up a cached playback URL for the given PID; returns `haveCache: false` on miss or expiry. */
-function channelCache(pid: string, params: string): CacheLookupResult {
-  const cache: CacheLookupResult = {
+/** Looks up a cached playback URL for the given PID via CachePort; returns `haveCache: false` on miss. */
+async function channelCache(
+  pid: string,
+  params: string,
+): Promise<CacheLookupResult> {
+  const cacheResult: CacheLookupResult = {
     haveCache: false,
     code: 200,
     pid: "",
     playUrl: "",
     cacheDesc: "",
   };
-  const cacheEntry = urlCache[pid];
-  if (cacheEntry && typeof cacheEntry === "object") {
-    const expiresAt = cacheEntry.expiresAt - Date.now();
-    if (expiresAt >= 0) {
-      cache.haveCache = true;
+
+  try {
+    const cache = getCache();
+    const cacheEntry = await cache.get(pid);
+    if (cacheEntry) {
+      cacheResult.haveCache = true;
       let playUrl = cacheEntry.url;
       let msg = "Program adjusted, temporarily unavailable";
       if (cacheEntry.content !== null) {
@@ -218,8 +230,8 @@ function channelCache(pid: string, params: string): CacheLookupResult {
           msg;
       }
       if (playUrl === "") {
-        cache.cacheDesc = `${pid} ${msg}`;
-        return cache;
+        cacheResult.cacheDesc = `${pid} ${msg}`;
+        return cacheResult;
       }
 
       if (params !== "") {
@@ -229,14 +241,17 @@ function channelCache(pid: string, params: string): CacheLookupResult {
         }
       }
       logger.info("Using cached data");
-      cache.code = 302;
-      cache.cacheDesc = "Cache hit";
-      cache.playUrl = playUrl;
-      return cache;
+      cacheResult.code = 302;
+      cacheResult.cacheDesc = "Cache hit";
+      cacheResult.playUrl = playUrl;
+      return cacheResult;
     }
+  } catch {
+    // Cache miss or error — proceed without cache
   }
-  cache.cacheDesc = "No cache available";
-  return cache;
+
+  cacheResult.cacheDesc = "No cache available";
+  return cacheResult;
 }
 
 export { servePlaylist, channel, channelCache };

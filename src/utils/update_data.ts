@@ -3,18 +3,12 @@
  * Runs two independent update pipelines:
  *   - TV: fetches channel lists, generates M3U/TXT playlists and XMLTV EPG data
  *   - PE (Sports): fetches live/replay match schedules and appends them to playlists
- * Writes to `.bak` files first, then atomically renames to avoid serving partial data.
+ * Builds all content in memory, then writes once via the platform StoragePort.
  */
 import { fetchCategoryChannels } from "./channel_list.js";
-import {
-  appendFile,
-  appendFileSync,
-  copyFileSync,
-  renameFileSync,
-  writeFile,
-} from "./file_util.js";
-import { updateEpgData } from "./epg.js";
-import { dataDir, host, token, userId } from "../config.js";
+import { buildEpgEntries } from "./epg.js";
+import { getStorage } from "../platform/context.js";
+import { host, token, userId } from "../config.js";
 import refreshToken from "./refresh_token.js";
 import { logger } from "../logger.js";
 import {
@@ -23,19 +17,16 @@ import {
   fetchMatchReplayList,
 } from "../api/migu_client.js";
 
-/** Fetches all TV channel data, regenerates playlist and EPG files, and refreshes the token periodically. */
-async function updateTV(hours: number): Promise<void> {
-  const date = new Date();
-  const start = date.getTime();
+/** Fetches all TV channel data, builds playlist and EPG content in memory, then writes to storage. */
+async function updateTV(hours: number): Promise<{
+  m3u: string;
+  txt: string;
+  epg: string;
+}> {
+  const start = Date.now();
 
   const datas = await fetchCategoryChannels();
   logger.info("TV data fetched successfully!");
-
-  const m3uPath = `${dataDir}/playlist.m3u.bak`;
-  const txtPath = `${dataDir}/playlist.txt.bak`;
-
-  writeFile(m3uPath, "");
-  writeFile(txtPath, "");
 
   if (!(hours % 720)) {
     if (userId !== "" && token !== "") {
@@ -48,22 +39,20 @@ async function updateTV(hours: number): Promise<void> {
     }
   }
 
-  appendFile(
-    m3uPath,
+  const m3uParts: string[] = [
     `#EXTM3U x-tvg-url="\${replace}/epg.xml" catchup="append" catchup-source="?playbackbegin=\${(b)yyyyMMddHHmmss}&playbackend=\${(e)yyyyMMddHHmmss}"\n`,
-  );
-  logger.warn("Updating TV...");
-
-  const epgFile = `${dataDir}/epg.xml.bak`;
-  writeFile(
-    epgFile,
+  ];
+  const txtParts: string[] = [];
+  const epgParts: string[] = [
     `<?xml version="1.0" encoding="UTF-8"?>\n` +
       `<tv generator-info-name="Tak" generator-info-url="${host}">\n`,
-  );
+  ];
+
+  logger.warn("Updating TV...");
 
   for (let i = 0; i < datas.length; i++) {
     const data = datas[i]!.dataList;
-    appendFile(txtPath, `${datas[i]!.name},#genre#\n`);
+    txtParts.push(`${datas[i]!.name},#genre#\n`);
     for (let j = 0; j < data.length; j++) {
       const item = data[j]!;
       if (j === 0 && i === 0) {
@@ -74,26 +63,39 @@ async function updateTV(hours: number): Promise<void> {
           `[diag] update_data item[0] pid=${item.pid}, name=${item.name}`,
         );
       }
-      await updateEpgData(item, epgFile);
-      appendFile(
-        m3uPath,
+
+      const epgXml = await buildEpgEntries(item);
+      if (epgXml) {
+        epgParts.push(epgXml);
+      }
+
+      m3uParts.push(
         `#EXTINF:-1 tvg-id="${item.name}" tvg-name="${item.name}" tvg-logo="${item.pics.highResolutionH}" group-title="${datas[i]!.name}",${item.name}\n\${replace}/${item.pid}\n`,
       );
-      appendFile(txtPath, `${item.name},\${replace}/${item.pid}\n`);
+      txtParts.push(`${item.name},\${replace}/${item.pid}\n`);
     }
     logger.info(`Category ###: ${datas[i]!.name} updated!`);
   }
 
-  appendFileSync(epgFile, `</tv>\n`);
-  renameFileSync(epgFile, epgFile.replace(".bak", ""));
-  renameFileSync(m3uPath, m3uPath.replace(".bak", ""));
-  renameFileSync(txtPath, txtPath.replace(".bak", ""));
+  epgParts.push(`</tv>\n`);
+
+  const m3u = m3uParts.join("");
+  const txt = txtParts.join("");
+  const epg = epgParts.join("");
+
+  const storage = getStorage();
+  await storage.put("playlist:m3u", m3u);
+  await storage.put("playlist:txt", txt);
+  await storage.put("epg:xml", epg);
+
   logger.info("TV update completed!");
   const end = Date.now();
   logger.warn(`TV update took ${(end - start) / 1000}s`);
+
+  return { m3u, txt, epg };
 }
 
-/** Fetches sports match schedules (live + replay) and appends them to the playlist files. */
+/** Fetches sports match schedules (live + replay) and appends them to the playlist content in storage. */
 async function updatePE(_hours: number): Promise<void> {
   const start = Date.now();
 
@@ -104,11 +106,12 @@ async function updatePE(_hours: number): Promise<void> {
   }
   logger.info("PE data fetched successfully!");
 
-  copyFileSync(`${dataDir}/playlist.m3u`, `${dataDir}/playlist.m3u.bak`, 0);
-  copyFileSync(`${dataDir}/playlist.txt`, `${dataDir}/playlist.txt.bak`, 0);
+  const storage = getStorage();
+  const existingM3u = (await storage.get("playlist:m3u")) ?? "";
+  const existingTxt = (await storage.get("playlist:txt")) ?? "";
 
-  const m3uPath = `${dataDir}/playlist.m3u.bak`;
-  const txtPath = `${dataDir}/playlist.txt.bak`;
+  const m3uParts: string[] = [existingM3u];
+  const txtParts: string[] = [existingTxt];
 
   logger.warn("Updating PE...");
 
@@ -131,7 +134,7 @@ async function updatePE(_hours: number): Promise<void> {
 
       if (data.competitionName !== lastCompetition) {
         lastCompetition = data.competitionName;
-        appendFile(txtPath, `${data.competitionName},#genre#\n`);
+        txtParts.push(`${data.competitionName},#genre#\n`);
       }
 
       try {
@@ -161,14 +164,10 @@ async function updatePE(_hours: number): Promise<void> {
                 timeStr = peResultStartTimeStr.substring(11, 16);
               }
               const competitionDesc = `${data.competitionName} ${pkInfoTitle} ${replay.name} ${timeStr}`;
-              appendFileSync(
-                m3uPath,
+              m3uParts.push(
                 `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" group-title="${data.competitionName}",${competitionDesc}\n\${replace}/${replay.pID}\n`,
               );
-              appendFileSync(
-                txtPath,
-                `${competitionDesc},\${replace}/${replay.pID}\n`,
-              );
+              txtParts.push(`${competitionDesc},\${replace}/${replay.pID}\n`);
             }
           }
           continue;
@@ -182,14 +181,10 @@ async function updatePE(_hours: number): Promise<void> {
             continue;
           }
           const competitionDesc = `${data.competitionName} ${pkInfoTitle} ${live.name} ${live.startTimeStr.substring(11, 16)}`;
-          appendFileSync(
-            m3uPath,
+          m3uParts.push(
             `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" group-title="${data.competitionName}",${competitionDesc}\n\${replace}/${live.pID}\n`,
           );
-          appendFileSync(
-            txtPath,
-            `${competitionDesc},\${replace}/${live.pID}\n`,
-          );
+          txtParts.push(`${competitionDesc},\${replace}/${live.pID}\n`);
         }
       } catch {
         logger.warn(
@@ -200,8 +195,9 @@ async function updatePE(_hours: number): Promise<void> {
     logger.info(`Date ${date} updated!`);
   }
 
-  renameFileSync(m3uPath, m3uPath.replace(".bak", ""));
-  renameFileSync(txtPath, txtPath.replace(".bak", ""));
+  await storage.put("playlist:m3u", m3uParts.join(""));
+  await storage.put("playlist:txt", txtParts.join(""));
+
   logger.info("PE update completed!");
   const end = Date.now();
   logger.warn(`PE update took ${(end - start) / 1000}s`);
@@ -213,4 +209,4 @@ async function updatePlaylistData(hours: number): Promise<void> {
   await updatePE(hours);
 }
 
-export { updatePlaylistData };
+export { updatePlaylistData, updateTV, updatePE };

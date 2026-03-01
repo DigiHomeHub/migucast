@@ -1,71 +1,47 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { ILogObj } from "tslog";
-
-vi.mock("../../src/config.js", () => ({
-  logLevel: "info",
-  logFile: undefined,
-}));
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 describe("logger", () => {
   beforeEach(() => {
     vi.resetModules();
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("exports a Logger instance with name 'migucast'", async () => {
+  it("exports logger with all LoggerPort methods", async () => {
     const { logger } = await import("../../src/logger.js");
     expect(logger).toBeDefined();
-    expect(logger.settings.name).toBe("migucast");
+    expect(typeof logger.info).toBe("function");
+    expect(typeof logger.warn).toBe("function");
+    expect(typeof logger.error).toBe("function");
+    expect(typeof logger.debug).toBe("function");
+    expect(typeof logger.trace).toBe("function");
   });
 
-  it("defaults to pretty mode when NODE_ENV is not production", async () => {
-    delete process.env.NODE_ENV;
+  it("silently drops logs before setLoggerImpl is called", async () => {
     const { logger } = await import("../../src/logger.js");
-    expect(logger.settings.type).toBe("pretty");
+    expect(() => logger.info("should not throw")).not.toThrow();
   });
 
-  it("uses json mode when NODE_ENV is production", async () => {
-    const original = process.env.NODE_ENV;
-    process.env.NODE_ENV = "production";
-    try {
-      const { logger } = await import("../../src/logger.js");
-      expect(logger.settings.type).toBe("json");
-    } finally {
-      if (original === undefined) {
-        delete process.env.NODE_ENV;
-      } else {
-        process.env.NODE_ENV = original;
-      }
-    }
+  it("delegates to the registered implementation after setLoggerImpl", async () => {
+    const { logger, setLoggerImpl } = await import("../../src/logger.js");
+    const mockImpl = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+      trace: vi.fn(),
+    };
+    setLoggerImpl(mockImpl);
+
+    logger.info("hello");
+    logger.warn("warning", { extra: true });
+    logger.error(new Error("oops"));
+
+    expect(mockImpl.info).toHaveBeenCalledWith("hello");
+    expect(mockImpl.warn).toHaveBeenCalledWith("warning", { extra: true });
+    expect(mockImpl.error).toHaveBeenCalledTimes(1);
   });
 
-  it("respects configured log level", async () => {
-    const { logger } = await import("../../src/logger.js");
-    expect(logger.settings.minLevel).toBe(3);
-  });
-
-  it("attaches file transport when logFile is configured", async () => {
-    const writeFn = vi.fn();
-    vi.doMock("node:fs", () => ({
-      default: {
-        createWriteStream: vi.fn(() => ({ write: writeFn })),
-      },
-    }));
-    vi.doMock("../../src/config.js", () => ({
-      logLevel: "info",
-      logFile: "/tmp/migucast-test.log",
-    }));
-
-    const { logger } = await import("../../src/logger.js");
-    logger.info("test file transport");
-
-    expect(writeFn).toHaveBeenCalled();
-    const written = writeFn.mock.calls[0]?.[0] as string;
-    expect(written).toContain("test file transport");
-    const parsed = JSON.parse(written.trim()) as ILogObj;
-    expect(parsed).toHaveProperty("_meta");
+  it("exports setLoggerImpl function", async () => {
+    const mod = await import("../../src/logger.js");
+    expect(typeof mod.setLoggerImpl).toBe("function");
   });
 });

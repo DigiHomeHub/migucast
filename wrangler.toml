@@ -1,0 +1,26 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "migucast"
+main = "src/worker.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[triggers]
+crons = ["0 */6 * * *"]
+
+[[kv_namespaces]]
+binding = "MIGUCAST_DATA"
+id = "<replace-with-kv-namespace-id>"
+preview_id = "<replace-with-preview-kv-namespace-id>"
+
+[vars]
+# muserId = ""
+# mtoken = ""
+# mhost = ""
+# mpass = ""
+# mrateType = "3"
+# menableHDR = "true"
+# menableH265 = "true"
+# mupdateInterval = "6"
+
+# For the internal update chain authentication
+# UPDATE_SECRET = "your-secret-here"

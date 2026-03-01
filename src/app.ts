@@ -6,6 +6,7 @@
  */
 import http from "node:http";
 import {
+  config,
   host,
   pass,
   port,
@@ -15,8 +16,32 @@ import {
 } from "./config.js";
 import { getReadableDateTime } from "./utils/time.js";
 import { updatePlaylistData } from "./utils/update_data.js";
+import { setLoggerImpl } from "./logger.js";
 import { logger } from "./logger.js";
 import { channel, servePlaylist } from "./utils/request_handler.js";
+import { initPlatform } from "./platform/context.js";
+import {
+  FileStorageAdapter,
+  InMemoryCacheAdapter,
+  TslogAdapter,
+} from "./platform/node.js";
+
+// --- Platform initialization ---
+
+const tslogAdapter = new TslogAdapter({
+  logLevel: config.logLevel,
+  logFile: config.logFile,
+  isProduction: process.env.NODE_ENV === "production",
+});
+setLoggerImpl(tslogAdapter);
+
+initPlatform({
+  storage: new FileStorageAdapter(config.dataDir),
+  cache: new InMemoryCacheAdapter(),
+  logger: tslogAdapter,
+});
+
+// --- HTTP server ---
 
 let hours = 0;
 
@@ -94,7 +119,16 @@ const server = http.createServer((req, res) => {
         "/,/interface.txt,/m3u,/txt,/epg.xml,/playlist.m3u,/playlist.txt";
 
       if (playlistRoutes.indexOf(url) !== -1) {
-        const playlistResult = servePlaylist(url, headers, urlUserId, urlToken);
+        const genericHeaders: Record<string, string | undefined> = {};
+        for (const [key, value] of Object.entries(headers)) {
+          genericHeaders[key] = Array.isArray(value) ? value.join(", ") : value;
+        }
+        const playlistResult = await servePlaylist(
+          url,
+          genericHeaders,
+          urlUserId,
+          urlToken,
+        );
         if (playlistResult.content === null) {
           playlistResult.content = "Fetch failed";
         }

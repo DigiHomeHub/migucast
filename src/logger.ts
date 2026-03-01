@@ -1,40 +1,31 @@
 /**
- * Centralized logging module built on tslog.
- * Automatically switches between Pretty (dev) and JSON (prod) output modes.
- * Optionally writes structured JSON lines to a log file when `logFile` is configured.
+ * Pluggable logging facade.
+ * All modules import `logger` from here. The actual implementation is set
+ * at startup via `setLoggerImpl()` — tslog for Node.js, console for Workers.
+ * Before initialization, logs are silently dropped.
  */
-import { Logger, type ILogObj } from "tslog";
-import fs from "node:fs";
-import { logLevel, logFile } from "./config.js";
+import type { LoggerPort } from "./platform/types.js";
 
-type LogLevelName =
-  | "silly"
-  | "trace"
-  | "debug"
-  | "info"
-  | "warn"
-  | "error"
-  | "fatal";
+let _impl: LoggerPort | null = null;
 
-const LOG_LEVEL_MAP: Record<LogLevelName, number> = {
-  silly: 0,
-  trace: 1,
-  debug: 2,
-  info: 3,
-  warn: 4,
-  error: 5,
-  fatal: 6,
-};
-
-export const logger: Logger<ILogObj> = new Logger({
-  name: "migucast",
-  minLevel: LOG_LEVEL_MAP[logLevel],
-  type: process.env.NODE_ENV === "production" ? "json" : "pretty",
-});
-
-if (logFile) {
-  const logStream = fs.createWriteStream(logFile, { flags: "a" });
-  logger.attachTransport((logObj: ILogObj) => {
-    logStream.write(JSON.stringify(logObj) + "\n");
-  });
+export function setLoggerImpl(impl: LoggerPort): void {
+  _impl = impl;
 }
+
+export const logger: LoggerPort = {
+  info(...args: unknown[]): void {
+    _impl?.info(...args);
+  },
+  warn(...args: unknown[]): void {
+    _impl?.warn(...args);
+  },
+  error(...args: unknown[]): void {
+    _impl?.error(...args);
+  },
+  debug(...args: unknown[]): void {
+    _impl?.debug(...args);
+  },
+  trace(...args: unknown[]): void {
+    _impl?.trace(...args);
+  },
+};

@@ -1,7 +1,7 @@
 /**
  * Application configuration module.
- * Defines and validates all runtime settings from environment variables using Zod schemas.
- * Environment variable prefix: `m` (e.g. `muserId`, `mtoken`, `mport`).
+ * Defines and validates all runtime settings using Zod schemas.
+ * Supports both Node.js (process.env) and Workers (env bindings) via parseConfig().
  */
 import { z } from "zod";
 
@@ -35,31 +35,59 @@ export const AppConfigSchema = z.object({
   dataDir: z.string().optional(),
 });
 
-const parsed = AppConfigSchema.parse({
-  userId: process.env.muserId,
-  token: process.env.mtoken,
-  port: process.env.mport,
-  host: process.env.mhost,
-  rateType: process.env.mrateType,
-  debug: process.env.mdebug,
-  pass: process.env.mpass,
-  enableHdr: process.env.menableHDR,
-  enableH265: process.env.menableH265,
-  programInfoUpdateInterval: process.env.mupdateInterval,
-  logLevel: process.env.mlogLevel,
-  logFile: process.env.mlogFile,
-  dataDir: process.env.mdataDir,
-});
-
-/** Resolved data output directory — falls back to process.cwd() when mdataDir is unset. */
-export const dataDir: string = parsed.dataDir ?? process.cwd();
-
-export const config = {
-  ...parsed,
-  dataDir,
-  logFile:
-    parsed.logFile ?? (parsed.dataDir ? `${dataDir}/migucast.log` : undefined),
+export type FullAppConfig = z.infer<typeof AppConfigSchema> & {
+  dataDir: string;
+  logFile: string | undefined;
 };
+
+/** Maps the `m`-prefixed env variable names to config field names. */
+export function mapEnvToConfigInput(
+  env: Record<string, string | undefined>,
+): Record<string, unknown> {
+  return {
+    userId: env.muserId,
+    token: env.mtoken,
+    port: env.mport,
+    host: env.mhost,
+    rateType: env.mrateType,
+    debug: env.mdebug,
+    pass: env.mpass,
+    enableHdr: env.menableHDR,
+    enableH265: env.menableH265,
+    programInfoUpdateInterval: env.mupdateInterval,
+    logLevel: env.mlogLevel,
+    logFile: env.mlogFile,
+    dataDir: env.mdataDir,
+  };
+}
+
+/** Parses and validates config from a generic env record. Usable by both Node.js and Workers. */
+export function parseConfig(
+  env: Record<string, string | undefined>,
+  fallbackDataDir: string = ".",
+): FullAppConfig {
+  const input = mapEnvToConfigInput(env);
+  const parsed = AppConfigSchema.parse(input);
+  const dataDir = parsed.dataDir ?? fallbackDataDir;
+  return {
+    ...parsed,
+    dataDir,
+    logFile:
+      parsed.logFile ??
+      (parsed.dataDir ? `${dataDir}/migucast.log` : undefined),
+  };
+}
+
+// --- Node.js default initialization (reads process.env at module load) ---
+
+const nodeConfig = parseConfig(
+  process.env as Record<string, string | undefined>,
+  process.cwd(),
+);
+
+export const config = nodeConfig;
+
+export const dataDir: string = nodeConfig.dataDir;
 
 export const {
   userId,
@@ -74,4 +102,4 @@ export const {
   programInfoUpdateInterval,
   logLevel,
   logFile,
-} = config;
+} = nodeConfig;

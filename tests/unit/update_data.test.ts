@@ -10,25 +10,38 @@ vi.mock("../../src/config.js", () => ({
   dataDir: process.cwd(),
 }));
 
+vi.mock("../../src/logger.js", () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    trace: vi.fn(),
+  },
+  setLoggerImpl: vi.fn(),
+}));
+
 vi.mock("../../src/utils/time.js", () => ({
   getDateString: vi.fn(() => "20260228"),
-  getLogDateTime: vi.fn(() => "2026-01-01 00:00:00:000"),
 }));
 
 vi.mock("../../src/utils/channel_list.js", () => ({
   fetchCategoryChannels: vi.fn(),
 }));
 
-vi.mock("../../src/utils/file_util.js", () => ({
-  writeFile: vi.fn(),
-  appendFile: vi.fn(),
-  appendFileSync: vi.fn(),
-  copyFileSync: vi.fn(),
-  renameFileSync: vi.fn(),
+const mockStorage = {
+  get: vi.fn<(key: string) => Promise<string | null>>().mockResolvedValue(null),
+  put: vi
+    .fn<(key: string, value: string) => Promise<void>>()
+    .mockResolvedValue(undefined),
+};
+
+vi.mock("../../src/platform/context.js", () => ({
+  getStorage: () => mockStorage,
 }));
 
 vi.mock("../../src/utils/epg.js", () => ({
-  updateEpgData: vi.fn(() => Promise.resolve(true)),
+  buildEpgEntries: vi.fn(() => Promise.resolve(null)),
 }));
 
 vi.mock("../../src/utils/refresh_token.js", () => ({
@@ -47,7 +60,6 @@ import {
   fetchMatchBasicData,
   fetchMatchReplayList,
 } from "../../src/api/migu_client.js";
-import { renameFileSync } from "../../src/utils/file_util.js";
 import refreshToken from "../../src/utils/refresh_token.js";
 import { updatePlaylistData } from "../../src/utils/update_data.js";
 
@@ -55,11 +67,12 @@ const mockDataList = vi.mocked(fetchCategoryChannels);
 const mockFetchMatchList = vi.mocked(fetchMatchList);
 const mockFetchMatchBasicData = vi.mocked(fetchMatchBasicData);
 const mockFetchMatchReplayList = vi.mocked(fetchMatchReplayList);
-const mockRenameFileSync = vi.mocked(renameFileSync);
 const mockRefreshToken = vi.mocked(refreshToken);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockStorage.get.mockResolvedValue(null);
+  mockStorage.put.mockResolvedValue(undefined);
 });
 
 describe("update_data", () => {
@@ -85,7 +98,13 @@ describe("update_data", () => {
       await updatePlaylistData(6);
 
       expect(mockDataList).toHaveBeenCalledTimes(1);
-      expect(mockRenameFileSync).toHaveBeenCalled();
+      expect(mockStorage.put).toHaveBeenCalled();
+      const putCalls = mockStorage.put.mock.calls;
+      const m3uCall = putCalls.find(
+        (c: [string, string]) => c[0] === "playlist:m3u",
+      );
+      expect(m3uCall).toBeDefined();
+      expect(m3uCall![1]).toContain("#EXTM3U");
     });
 
     it("refreshes token when hours is multiple of 720", async () => {

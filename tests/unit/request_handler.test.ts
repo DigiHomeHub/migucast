@@ -12,12 +12,34 @@ vi.mock("../../src/config.js", () => ({
   dataDir: process.cwd(),
 }));
 
-vi.mock("../../src/utils/time.js", () => ({
-  getLogDateTime: vi.fn(() => "2026-01-01 00:00:00:000"),
+vi.mock("../../src/logger.js", () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    trace: vi.fn(),
+  },
+  setLoggerImpl: vi.fn(),
 }));
 
-vi.mock("../../src/utils/file_util.js", () => ({
-  readFileSync: vi.fn(() => Buffer.from("content ${replace}/123")),
+const mockStorage = {
+  get: vi
+    .fn<(key: string) => Promise<string | null>>()
+    .mockResolvedValue("content ${replace}/123"),
+  put: vi
+    .fn<(key: string, value: string) => Promise<void>>()
+    .mockResolvedValue(undefined),
+};
+
+const mockCache = {
+  get: vi.fn().mockResolvedValue(null),
+  set: vi.fn().mockResolvedValue(undefined),
+};
+
+vi.mock("../../src/platform/context.js", () => ({
+  getStorage: () => mockStorage,
+  getCache: () => mockCache,
 }));
 
 vi.mock("../../src/utils/android_url.js", () => ({
@@ -40,7 +62,6 @@ vi.mock("../../src/utils/channel_list.js", () => ({
   delay: vi.fn(),
 }));
 
-import { readFileSync } from "../../src/utils/file_util.js";
 import {
   getAndroidUrl,
   getAndroidUrl720p,
@@ -51,40 +72,40 @@ import {
   channel,
   channelCache,
 } from "../../src/utils/request_handler.js";
-import type { IncomingHttpHeaders } from "node:http";
 
-const mockReadFileSync = vi.mocked(readFileSync);
 const mockGetAndroidURL = vi.mocked(getAndroidUrl);
 const mockGetAndroidURL720p = vi.mocked(getAndroidUrl720p);
 const mockGet302URL = vi.mocked(resolveRedirectUrl);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockStorage.get.mockResolvedValue("content ${replace}/123");
+  mockCache.get.mockResolvedValue(null);
 });
 
 describe("request_handler", () => {
   describe("servePlaylist", () => {
-    const defaultHeaders: IncomingHttpHeaders = { host: "localhost:1234" };
+    const defaultHeaders: Record<string, string | undefined> = {
+      host: "localhost:1234",
+    };
 
-    it("reads and returns playlist.m3u for root URL", () => {
-      const result = servePlaylist(
+    it("reads and returns playlist.m3u for root URL", async () => {
+      const result = await servePlaylist(
         "/",
         defaultHeaders,
         "defaultUser",
         "defaultToken",
       );
 
-      expect(mockReadFileSync).toHaveBeenCalled();
+      expect(mockStorage.get).toHaveBeenCalledWith("playlist:m3u");
       expect(result.contentType).toBe("text/plain;charset=UTF-8");
       expect(String(result.content)).toContain("http://localhost:1234");
     });
 
-    it("replaces ${replace} with host header", () => {
-      mockReadFileSync.mockReturnValueOnce(
-        Buffer.from("stream ${replace}/video"),
-      );
+    it("replaces ${replace} with host header", async () => {
+      mockStorage.get.mockResolvedValueOnce("stream ${replace}/video");
 
-      const result = servePlaylist(
+      const result = await servePlaylist(
         "/",
         defaultHeaders,
         "defaultUser",
@@ -93,8 +114,8 @@ describe("request_handler", () => {
       expect(String(result.content)).toBe("stream http://localhost:1234/video");
     });
 
-    it("returns XML content type for /epg.xml", () => {
-      const result = servePlaylist(
+    it("returns XML content type for /epg.xml", async () => {
+      const result = await servePlaylist(
         "/epg.xml",
         defaultHeaders,
         "defaultUser",
@@ -103,8 +124,8 @@ describe("request_handler", () => {
       expect(result.contentType).toBe("text/xml;charset=UTF-8");
     });
 
-    it("returns m3u content type for /m3u", () => {
-      const result = servePlaylist(
+    it("returns m3u content type for /m3u", async () => {
+      const result = await servePlaylist(
         "/m3u",
         defaultHeaders,
         "defaultUser",
@@ -113,8 +134,8 @@ describe("request_handler", () => {
       expect(result.contentType).toBe("audio/x-mpegurl; charset=utf-8");
     });
 
-    it("returns m3u content type for /playlist.m3u", () => {
-      const result = servePlaylist(
+    it("returns m3u content type for /playlist.m3u", async () => {
+      const result = await servePlaylist(
         "/playlist.m3u",
         defaultHeaders,
         "defaultUser",
@@ -123,8 +144,8 @@ describe("request_handler", () => {
       expect(result.contentType).toBe("audio/x-mpegurl; charset=utf-8");
     });
 
-    it("returns txt file for /txt", () => {
-      const result = servePlaylist(
+    it("returns txt file for /txt", async () => {
+      const result = await servePlaylist(
         "/txt",
         defaultHeaders,
         "defaultUser",
@@ -133,8 +154,8 @@ describe("request_handler", () => {
       expect(result.contentType).toBe("text/plain;charset=UTF-8");
     });
 
-    it("returns txt file for /playlist.txt", () => {
-      const result = servePlaylist(
+    it("returns txt file for /playlist.txt", async () => {
+      const result = await servePlaylist(
         "/playlist.txt",
         defaultHeaders,
         "defaultUser",
@@ -143,10 +164,10 @@ describe("request_handler", () => {
       expect(result.contentType).toBe("text/plain;charset=UTF-8");
     });
 
-    it("appends user credentials to replace host when different from defaults", () => {
-      mockReadFileSync.mockReturnValueOnce(Buffer.from("url ${replace}/ch"));
+    it("appends user credentials to replace host when different from defaults", async () => {
+      mockStorage.get.mockResolvedValueOnce("url ${replace}/ch");
 
-      const result = servePlaylist(
+      const result = await servePlaylist(
         "/",
         defaultHeaders,
         "otherUser",
@@ -156,13 +177,10 @@ describe("request_handler", () => {
       expect(String(result.content)).toContain("otherToken");
     });
 
-    it("returns null content on read error", () => {
-      vi.spyOn(console, "log").mockImplementation(() => {});
-      mockReadFileSync.mockImplementationOnce(() => {
-        throw new Error("file not found");
-      });
+    it("returns null content on read error", async () => {
+      mockStorage.get.mockRejectedValueOnce(new Error("storage error"));
 
-      const result = servePlaylist(
+      const result = await servePlaylist(
         "/",
         defaultHeaders,
         "defaultUser",
@@ -244,7 +262,6 @@ describe("request_handler", () => {
     });
 
     it("handles fetch error gracefully", async () => {
-      vi.spyOn(console, "log").mockImplementation(() => {});
       mockGetAndroidURL720p.mockRejectedValueOnce(new Error("network"));
 
       const result = await channel("/500001", "", "");
@@ -253,8 +270,8 @@ describe("request_handler", () => {
   });
 
   describe("channelCache", () => {
-    it("returns no cache when pid has no cached entry", () => {
-      const result = channelCache("nonexistent", "");
+    it("returns no cache when pid has no cached entry", async () => {
+      const result = await channelCache("nonexistent", "");
       expect(result.haveCache).toBe(false);
     });
   });
