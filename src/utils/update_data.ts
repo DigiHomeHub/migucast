@@ -17,7 +17,6 @@ import { updateEpgData } from "./epg.js";
 import { dataDir, host, token, userId } from "../config.js";
 import refreshToken from "./refresh_token.js";
 import { logger } from "../logger.js";
-import { getDateString } from "./time.js";
 import {
   fetchMatchList,
   fetchMatchBasicData,
@@ -113,19 +112,11 @@ async function updatePE(_hours: number): Promise<void> {
 
   logger.warn("Updating PE...");
 
+  let lastCompetition = "";
+
   for (let i = 1; i < 4; i++) {
     const date = datas.body?.days?.[i];
     if (!date) continue;
-
-    let relativeDate = "Yesterday";
-    const dateString = getDateString(new Date());
-    if (date === dateString) {
-      relativeDate = "Today";
-    } else if (parseInt(date) > parseInt(dateString)) {
-      relativeDate = "Tomorrow";
-    }
-
-    appendFile(txtPath, `Sports-${relativeDate},#genre#\n`);
 
     const matchList = datas.body?.matchList?.[date];
     if (!matchList) continue;
@@ -137,6 +128,11 @@ async function updatePE(_hours: number): Promise<void> {
       }
       const peResult = await fetchMatchBasicData(data.mgdbId);
       if (!peResult) continue;
+
+      if (data.competitionName !== lastCompetition) {
+        lastCompetition = data.competitionName;
+        appendFile(txtPath, `${data.competitionName},#genre#\n`);
+      }
 
       try {
         if ((peResult.body?.endTime ?? 0) < Date.now()) {
@@ -167,7 +163,7 @@ async function updatePE(_hours: number): Promise<void> {
               const competitionDesc = `${data.competitionName} ${pkInfoTitle} ${replay.name} ${timeStr}`;
               appendFileSync(
                 m3uPath,
-                `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" group-title="Sports-${relativeDate}",${competitionDesc}\n\${replace}/${replay.pID}\n`,
+                `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" group-title="${data.competitionName}",${competitionDesc}\n\${replace}/${replay.pID}\n`,
               );
               appendFileSync(
                 txtPath,
@@ -188,7 +184,7 @@ async function updatePE(_hours: number): Promise<void> {
           const competitionDesc = `${data.competitionName} ${pkInfoTitle} ${live.name} ${live.startTimeStr.substring(11, 16)}`;
           appendFileSync(
             m3uPath,
-            `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" group-title="Sports-${relativeDate}",${competitionDesc}\n\${replace}/${live.pID}\n`,
+            `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" group-title="${data.competitionName}",${competitionDesc}\n\${replace}/${live.pID}\n`,
           );
           appendFileSync(
             txtPath,
