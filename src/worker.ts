@@ -5,6 +5,20 @@
  *   - scheduled: triggers periodic playlist/EPG updates via chunked state machine
  *   - /internal/update-batch: continues chunked update (self-invoked)
  */
+
+/** Minimal local declarations so that tsc --noEmit under the main tsconfig (which lacks @cloudflare/workers-types) still compiles. */
+declare global {
+  interface ExecutionContext {
+    waitUntil(promise: Promise<unknown>): void;
+    passThroughOnException(): void;
+  }
+  interface ScheduledEvent {
+    readonly scheduledTime: number;
+    readonly cron: string;
+    noRetry(): void;
+  }
+}
+
 import { parseConfig, type FullAppConfig } from "./config.js";
 import { setLoggerImpl, logger } from "./logger.js";
 import { initPlatform } from "./platform/context.js";
@@ -206,6 +220,15 @@ async function processBatchAndChain(
     logger.info("All update batches completed");
   }
 }
+
+export {
+  initWorkersPlatform,
+  handleRequest,
+  handleScheduled,
+  resolveOrigin,
+  processBatchAndChain,
+  PLAYLIST_ROUTES,
+};
 
 export default {
   async fetch(

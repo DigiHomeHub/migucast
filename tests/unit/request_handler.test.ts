@@ -274,5 +274,102 @@ describe("request_handler", () => {
       const result = await channelCache("nonexistent", "");
       expect(result.haveCache).toBe(false);
     });
+
+    it("returns cached URL with 302 for valid cache hit", async () => {
+      mockCache.get.mockResolvedValueOnce({
+        expiresAt: Date.now() + 3600000,
+        url: "http://cached.example.com/stream",
+        content: null,
+      });
+      const result = await channelCache("12345", "");
+      expect(result.haveCache).toBe(true);
+      expect(result.code).toBe(302);
+      expect(result.playUrl).toBe("http://cached.example.com/stream");
+      expect(result.cacheDesc).toBe("Cache hit");
+    });
+
+    it("returns cached URL with appended params", async () => {
+      mockCache.get.mockResolvedValueOnce({
+        expiresAt: Date.now() + 3600000,
+        url: "http://cached.example.com/stream",
+        content: null,
+      });
+      const result = await channelCache("12345", "key=val&foo=bar");
+      expect(result.playUrl).toContain("key=val");
+      expect(result.playUrl).toContain("foo=bar");
+    });
+
+    it("returns error desc when cached URL is empty", async () => {
+      mockCache.get.mockResolvedValueOnce({
+        expiresAt: Date.now() + 3600000,
+        url: "",
+        content: { message: "Unavailable" },
+      });
+      const result = await channelCache("12345", "");
+      expect(result.haveCache).toBe(true);
+      expect(result.cacheDesc).toContain("12345");
+      expect(result.cacheDesc).toContain("Unavailable");
+    });
+
+    it("returns default desc when cached content has no message", async () => {
+      mockCache.get.mockResolvedValueOnce({
+        expiresAt: Date.now() + 3600000,
+        url: "",
+        content: {},
+      });
+      const result = await channelCache("12345", "");
+      expect(result.cacheDesc).toContain("temporarily unavailable");
+    });
+
+    it("handles cache read error gracefully", async () => {
+      mockCache.get.mockRejectedValueOnce(new Error("cache error"));
+      const result = await channelCache("12345", "");
+      expect(result.haveCache).toBe(false);
+      expect(result.cacheDesc).toBe("No cache available");
+    });
+  });
+
+  describe("channel - cache write failure", () => {
+    it("proceeds without cache when cache.set fails", async () => {
+      mockGetAndroidURL720p.mockResolvedValueOnce({
+        url: "http://play.example.com/stream",
+        rateType: 3,
+        content: null,
+      });
+      mockGet302URL.mockResolvedValueOnce("http://final.example.com/stream");
+      mockCache.set.mockRejectedValueOnce(new Error("cache write error"));
+
+      const result = await channel("/600001", "", "");
+      expect(result.code).toBe(302);
+      expect(result.playUrl).toBe("http://final.example.com/stream");
+    });
+  });
+
+  describe("channel - empty URL with null content message", () => {
+    it("uses default message when content is null", async () => {
+      mockGetAndroidURL720p.mockResolvedValueOnce({
+        url: "",
+        rateType: 0,
+        content: null,
+      });
+
+      const result = await channel("/700001", "", "");
+      expect(result.desc).toContain("temporarily unavailable");
+    });
+  });
+
+  describe("channel - resolveRedirectUrl returns empty", () => {
+    it("keeps original URL when redirect returns empty", async () => {
+      mockGetAndroidURL720p.mockResolvedValueOnce({
+        url: "http://play.example.com/stream",
+        rateType: 3,
+        content: null,
+      });
+      mockGet302URL.mockResolvedValueOnce("");
+
+      const result = await channel("/800001", "", "");
+      expect(result.code).toBe(302);
+      expect(result.playUrl).toBe("http://play.example.com/stream");
+    });
   });
 });
