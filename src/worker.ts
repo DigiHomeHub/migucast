@@ -77,7 +77,10 @@ function resetInitialUpdateFlag(): void {
  * Check if KV has existing data; if not, trigger the full update.
  * Guards against duplicate triggers via KV state check.
  */
-async function maybeInitialUpdate(env: Env): Promise<void> {
+async function maybeInitialUpdate(
+  env: Env,
+  requestOrigin: string,
+): Promise<void> {
   const kv = env.MIGUCAST_DATA;
   const lastUpdate = await kv.get("meta:lastUpdate", { type: "text" });
   if (lastUpdate) return;
@@ -89,7 +92,7 @@ async function maybeInitialUpdate(env: Env): Promise<void> {
   }
 
   logger.info("No existing data found, triggering initial update");
-  await handleScheduled(env);
+  await handleScheduled(env, requestOrigin);
 }
 
 const PLAYLIST_ROUTES = new Set([
@@ -130,7 +133,7 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
     if (authHeader !== `Bearer ${secret}`) {
       return new Response("Unauthorized", { status: 401 });
     }
-    await handleScheduled(env);
+    await handleScheduled(env, url.origin);
     return new Response("Update triggered", { status: 202 });
   }
 
@@ -189,10 +192,10 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
       responseHeaders["content-disposition"] =
         'inline; filename="playlist.m3u"';
     }
-    return new Response(result.content ?? "Fetch failed", {
-      status: 200,
-      headers: responseHeaders,
-    });
+    return new Response(
+      result.content || "Data not available yet. Update may be in progress.",
+      { status: 200, headers: responseHeaders },
+    );
   }
 
   // Channel redirect route
@@ -214,10 +217,13 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   });
 }
 
-async function handleScheduled(env: Env): Promise<void> {
+async function handleScheduled(
+  env: Env,
+  originOverride?: string,
+): Promise<void> {
   initWorkersPlatform(env);
   const secret = env.UPDATE_SECRET ?? "migucast-internal";
-  const origin = resolveOrigin(env);
+  const origin = originOverride ?? resolveOrigin(env);
 
   logger.info("Cron trigger: starting playlist update");
   const state = await startUpdate(env.MIGUCAST_DATA);
@@ -278,7 +284,7 @@ export default {
       const response = await handleRequest(request, env);
       if (!initialUpdateTriggered) {
         initialUpdateTriggered = true;
-        ctx.waitUntil(maybeInitialUpdate(env));
+        ctx.waitUntil(maybeInitialUpdate(env, new URL(request.url).origin));
       }
       return response;
     } catch (error) {

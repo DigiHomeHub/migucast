@@ -305,7 +305,7 @@ describe("worker", () => {
       expect(res.headers.get("content-disposition")).toContain("playlist.m3u");
     });
 
-    it("returns Fetch failed when playlist content is null", async () => {
+    it("returns fallback message when playlist content is null", async () => {
       mockServePlaylist.mockResolvedValueOnce({
         content: null,
         contentType: "text/plain",
@@ -313,7 +313,22 @@ describe("worker", () => {
       const env = createMockEnv();
       const req = new Request("https://test.dev/");
       const res = await handleRequest(req, env);
-      expect(await res.text()).toBe("Fetch failed");
+      expect(await res.text()).toBe(
+        "Data not available yet. Update may be in progress.",
+      );
+    });
+
+    it("returns fallback message when playlist content is empty string", async () => {
+      mockServePlaylist.mockResolvedValueOnce({
+        content: "",
+        contentType: "text/plain",
+      });
+      const env = createMockEnv();
+      const req = new Request("https://test.dev/");
+      const res = await handleRequest(req, env);
+      expect(await res.text()).toBe(
+        "Data not available yet. Update may be in progress.",
+      );
     });
 
     it("returns 302 redirect for channel route", async () => {
@@ -412,6 +427,29 @@ describe("worker", () => {
       await handleScheduled(env);
       expect(mockProcessUpdateBatch).not.toHaveBeenCalled();
     });
+
+    it("uses originOverride for self-fetch chain when provided", async () => {
+      const env = createMockEnv();
+      mockStartUpdate.mockResolvedValueOnce({
+        phase: "processing",
+        totalBatches: 1,
+        currentBatch: 0,
+        totalChannels: 5,
+        startedAt: Date.now(),
+        hours: 0,
+        categories: [],
+      });
+      mockProcessUpdateBatch.mockResolvedValueOnce({ completed: false });
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue(new Response("OK"));
+      await handleScheduled(env, "https://custom.example.com");
+      expect(fetchSpy).toHaveBeenCalledWith(
+        expect.stringContaining("https://custom.example.com/"),
+        expect.any(Object),
+      );
+      fetchSpy.mockRestore();
+    });
   });
 
   describe("processBatchAndChain", () => {
@@ -468,7 +506,7 @@ describe("worker", () => {
         categories: [],
       });
       mockProcessUpdateBatch.mockResolvedValueOnce({ completed: true });
-      await maybeInitialUpdate(env);
+      await maybeInitialUpdate(env, "https://test.dev");
       expect(mockStartUpdate).toHaveBeenCalled();
     });
 
@@ -479,7 +517,7 @@ describe("worker", () => {
         return Promise.resolve(null);
       });
       const env = createMockEnv({ MIGUCAST_DATA: kv });
-      await maybeInitialUpdate(env);
+      await maybeInitialUpdate(env, "https://test.dev");
       expect(mockStartUpdate).not.toHaveBeenCalled();
     });
 
@@ -490,7 +528,7 @@ describe("worker", () => {
         return Promise.resolve(null);
       });
       const env = createMockEnv({ MIGUCAST_DATA: kv });
-      await maybeInitialUpdate(env);
+      await maybeInitialUpdate(env, "https://test.dev");
       expect(mockStartUpdate).not.toHaveBeenCalled();
     });
 
@@ -511,7 +549,7 @@ describe("worker", () => {
         categories: [],
       });
       mockProcessUpdateBatch.mockResolvedValueOnce({ completed: true });
-      await maybeInitialUpdate(env);
+      await maybeInitialUpdate(env, "https://test.dev");
       expect(mockStartUpdate).toHaveBeenCalled();
     });
   });
