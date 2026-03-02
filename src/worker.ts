@@ -32,6 +32,7 @@ import { servePlaylist, channel } from "./utils/request_handler.js";
 import {
   processUpdateBatch,
   startUpdate,
+  appendUpdateLog,
   type UpdateState,
 } from "./workers/chunked_update.js";
 
@@ -137,6 +138,15 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
     return new Response("Update triggered", { status: 202 });
   }
 
+  // Debug status endpoint (no auth required — only diagnostic info, no secrets)
+  if (path === "/internal/status") {
+    const statusJson = await buildStatusResponse(env, config);
+    return new Response(JSON.stringify(statusJson, null, 2), {
+      status: 200,
+      headers: { "Content-Type": "application/json;charset=UTF-8" },
+    });
+  }
+
   // Authentication check
   if (config.pass !== "") {
     const segments = path.split("/");
@@ -192,10 +202,17 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
       responseHeaders["content-disposition"] =
         'inline; filename="playlist.m3u"';
     }
-    return new Response(
-      result.content || "Data not available yet. Update may be in progress.",
-      { status: 200, headers: responseHeaders },
-    );
+    if (!result.content) {
+      const statusUrl = `${url.origin}/internal/status`;
+      const fallback =
+        `Data not available yet. Update may be in progress.\n\n` +
+        `Check update status: ${statusUrl}`;
+      return new Response(fallback, { status: 200, headers: responseHeaders });
+    }
+    return new Response(result.content, {
+      status: 200,
+      headers: responseHeaders,
+    });
   }
 
   // Channel redirect route
@@ -246,21 +263,108 @@ async function processBatchAndChain(
   origin: string,
 ): Promise<void> {
   const kv = env.MIGUCAST_DATA;
-  const result = await processUpdateBatch(kv, batch);
+
+  let result: { completed: boolean };
+  try {
+    result = await processUpdateBatch(kv, batch);
+    await appendUpdateLog(
+      kv,
+      `batch ${batch} processed (completed=${result.completed})`,
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    await appendUpdateLog(kv, `batch ${batch} FAILED: ${msg}`);
+    logger.error(`Batch ${batch} processing failed`);
+    logger.error(err);
+    return;
+  }
 
   if (!result.completed) {
     try {
-      await fetch(`${origin}/internal/update-batch?batch=${batch + 1}`, {
+      const chainUrl = `${origin}/internal/update-batch?batch=${batch + 1}`;
+      await appendUpdateLog(
+        kv,
+        `chaining to batch ${batch + 1} via ${chainUrl}`,
+      );
+      await fetch(chainUrl, {
         method: "POST",
         headers: { Authorization: `Bearer ${secret}` },
       });
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      await appendUpdateLog(
+        kv,
+        `self-fetch chain FAILED at batch ${batch + 1}: ${msg}`,
+      );
       logger.error("Self-fetch chain failed, update will resume on next cron");
       logger.error(err);
     }
   } else {
+    await appendUpdateLog(kv, "all update batches completed");
     logger.info("All update batches completed");
   }
+}
+
+/** Build the JSON payload for /internal/status. */
+async function buildStatusResponse(
+  env: Env,
+  config: FullAppConfig,
+): Promise<Record<string, unknown>> {
+  const kv = env.MIGUCAST_DATA;
+
+  const lastUpdate = await kv.get("meta:lastUpdate", { type: "text" });
+  const stateRaw = await kv.get("update:state", { type: "text" });
+  const logRaw = await kv.get("update:log", { type: "text" });
+
+  let updateState: Record<string, unknown> | null = null;
+  if (stateRaw) {
+    try {
+      const parsed = JSON.parse(stateRaw) as UpdateState;
+      // Omit large data (categories, sportMatches) to keep response small
+      updateState = {
+        phase: parsed.phase,
+        currentBatch: parsed.currentBatch,
+        totalBatches: parsed.totalBatches,
+        totalChannels: parsed.totalChannels,
+        startedAt: parsed.startedAt
+          ? new Date(parsed.startedAt).toISOString()
+          : null,
+        elapsedSeconds: parsed.startedAt
+          ? Math.round((Date.now() - parsed.startedAt) / 1000)
+          : null,
+        currentSportBatch: parsed.currentSportBatch ?? null,
+        totalSportBatches: parsed.totalSportBatches ?? null,
+      };
+    } catch {
+      updateState = { raw: stateRaw };
+    }
+  }
+
+  let updateLog: string[] = [];
+  if (logRaw) {
+    try {
+      updateLog = JSON.parse(logRaw) as string[];
+    } catch {
+      updateLog = [logRaw];
+    }
+  }
+
+  return {
+    lastUpdate,
+    updateState,
+    updateLog,
+    config: {
+      hasUserId: !!(config.userId && config.userId !== ""),
+      hasToken: !!(config.token && config.token !== ""),
+      host: config.host || "(not set)",
+      rateType: config.rateType,
+      pass: config.pass ? "(set)" : "(not set)",
+      enableHdr: config.enableHdr,
+      enableH265: config.enableH265,
+    },
+    kvBinding: env.MIGUCAST_DATA ? "connected" : "missing",
+    timestamp: new Date().toISOString(),
+  };
 }
 
 export {
@@ -269,6 +373,7 @@ export {
   handleScheduled,
   resolveOrigin,
   processBatchAndChain,
+  buildStatusResponse,
   maybeInitialUpdate,
   resetInitialUpdateFlag,
   PLAYLIST_ROUTES,

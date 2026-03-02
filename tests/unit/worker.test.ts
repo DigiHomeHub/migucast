@@ -72,6 +72,7 @@ vi.mock("../../src/workers/chunked_update.js", () => ({
     Promise.resolve({ totalBatches: 3, phase: "processing" }),
   ),
   processUpdateBatch: vi.fn(() => Promise.resolve({ completed: true })),
+  appendUpdateLog: vi.fn(() => Promise.resolve()),
 }));
 
 import { parseConfig } from "../../src/config.js";
@@ -305,7 +306,7 @@ describe("worker", () => {
       expect(res.headers.get("content-disposition")).toContain("playlist.m3u");
     });
 
-    it("returns fallback message when playlist content is null", async () => {
+    it("returns fallback message with status link when playlist content is null", async () => {
       mockServePlaylist.mockResolvedValueOnce({
         content: null,
         contentType: "text/plain",
@@ -313,12 +314,12 @@ describe("worker", () => {
       const env = createMockEnv();
       const req = new Request("https://test.dev/");
       const res = await handleRequest(req, env);
-      expect(await res.text()).toBe(
-        "Data not available yet. Update may be in progress.",
-      );
+      const text = await res.text();
+      expect(text).toContain("Data not available yet");
+      expect(text).toContain("/internal/status");
     });
 
-    it("returns fallback message when playlist content is empty string", async () => {
+    it("returns fallback message with status link when playlist content is empty string", async () => {
       mockServePlaylist.mockResolvedValueOnce({
         content: "",
         contentType: "text/plain",
@@ -326,9 +327,9 @@ describe("worker", () => {
       const env = createMockEnv();
       const req = new Request("https://test.dev/");
       const res = await handleRequest(req, env);
-      expect(await res.text()).toBe(
-        "Data not available yet. Update may be in progress.",
-      );
+      const text = await res.text();
+      expect(text).toContain("Data not available yet");
+      expect(text).toContain("/internal/status");
     });
 
     it("returns 302 redirect for channel route", async () => {
@@ -604,6 +605,58 @@ describe("worker", () => {
       });
       const res = await handleRequest(req, env);
       expect(res.status).toBe(202);
+    });
+  });
+
+  describe("handleRequest /internal/status", () => {
+    it("returns 200 with JSON status when no data exists", async () => {
+      const env = createMockEnv();
+      const req = new Request("https://test.dev/internal/status");
+      const res = await handleRequest(req, env);
+      expect(res.status).toBe(200);
+      expect(res.headers.get("Content-Type")).toContain("application/json");
+      const body = (await res.json()) as Record<string, unknown>;
+      expect(body).toHaveProperty("lastUpdate");
+      expect(body).toHaveProperty("updateState");
+      expect(body).toHaveProperty("updateLog");
+      expect(body).toHaveProperty("config");
+      expect(body).toHaveProperty("kvBinding");
+      expect(body).toHaveProperty("timestamp");
+    });
+
+    it("returns update state and log from KV", async () => {
+      const state = JSON.stringify({
+        phase: "processing",
+        currentBatch: 1,
+        totalBatches: 3,
+        totalChannels: 50,
+        startedAt: Date.now() - 10000,
+      });
+      const log = JSON.stringify(["[2026-03-02T00:00:00Z] test log entry"]);
+      const kv = createMockKVWith((key) => {
+        if (key === "meta:lastUpdate")
+          return Promise.resolve("2026-03-02T00:00:00Z");
+        if (key === "update:state") return Promise.resolve(state);
+        if (key === "update:log") return Promise.resolve(log);
+        return Promise.resolve(null);
+      });
+      const env = createMockEnv({ MIGUCAST_DATA: kv });
+      const req = new Request("https://test.dev/internal/status");
+      const res = await handleRequest(req, env);
+      const body = (await res.json()) as Record<string, unknown>;
+      expect(body.lastUpdate).toBe("2026-03-02T00:00:00Z");
+      const updateState = body.updateState as Record<string, unknown>;
+      expect(updateState.phase).toBe("processing");
+      expect(updateState.currentBatch).toBe(1);
+      expect(updateState.totalBatches).toBe(3);
+      expect(body.updateLog).toEqual(["[2026-03-02T00:00:00Z] test log entry"]);
+    });
+
+    it("does not require authentication", async () => {
+      const env = createMockEnv({ UPDATE_SECRET: "my-secret" });
+      const req = new Request("https://test.dev/internal/status");
+      const res = await handleRequest(req, env);
+      expect(res.status).toBe(200);
     });
   });
 
