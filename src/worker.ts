@@ -134,6 +134,14 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
     if (authHeader !== `Bearer ${secret}`) {
       return new Response("Unauthorized", { status: 401 });
     }
+    // ?force=true clears stuck state before re-triggering
+    if (url.searchParams.get("force") === "true") {
+      await env.MIGUCAST_DATA.put("update:state", "");
+      await appendUpdateLog(
+        env.MIGUCAST_DATA,
+        "force reset: cleared stuck update state",
+      );
+    }
     await handleScheduled(env, url.origin);
     return new Response("Update triggered", { status: 202 });
   }
@@ -335,6 +343,20 @@ async function buildStatusResponse(
         currentSportBatch: parsed.currentSportBatch ?? null,
         totalSportBatches: parsed.totalSportBatches ?? null,
       };
+
+      // Flag stale updates (stuck for > 10 minutes)
+      const STALE_THRESHOLD_MS = 10 * 60 * 1000;
+      if (
+        parsed.phase !== "done" &&
+        parsed.startedAt &&
+        Date.now() - parsed.startedAt > STALE_THRESHOLD_MS
+      ) {
+        updateState.stale = true;
+        updateState.hint =
+          "Update appears stuck. Likely cause: self-fetch chain failed " +
+          "(check that mhost secret is set to your custom domain). " +
+          "Use POST /internal/trigger-update?force=true to reset and retry.";
+      }
     } catch {
       updateState = { raw: stateRaw };
     }
