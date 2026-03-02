@@ -80,6 +80,7 @@ import { servePlaylist, channel } from "../../src/utils/request_handler.js";
 import {
   startUpdate,
   processUpdateBatch,
+  appendUpdateLog,
 } from "../../src/workers/chunked_update.js";
 import {
   initWorkersPlatform,
@@ -96,6 +97,7 @@ const mockServePlaylist = vi.mocked(servePlaylist);
 const mockChannel = vi.mocked(channel);
 const mockProcessUpdateBatch = vi.mocked(processUpdateBatch);
 const mockStartUpdate = vi.mocked(startUpdate);
+const mockAppendUpdateLog = vi.mocked(appendUpdateLog);
 const mockParseConfig = vi.mocked(parseConfig);
 
 function createMockKV(): Env["MIGUCAST_DATA"] {
@@ -470,7 +472,7 @@ describe("worker", () => {
       mockProcessUpdateBatch.mockResolvedValueOnce({ completed: false });
       const fetchSpy = vi
         .spyOn(globalThis, "fetch")
-        .mockResolvedValue(new Response("OK"));
+        .mockResolvedValue(new Response("OK", { status: 200 }));
       await processBatchAndChain(env, 2, "secret", "https://test.dev");
       expect(fetchSpy).toHaveBeenCalledWith(
         "https://test.dev/internal/update-batch?batch=3",
@@ -478,6 +480,34 @@ describe("worker", () => {
           method: "POST",
           headers: { Authorization: "Bearer secret" },
         }),
+      );
+      expect(mockAppendUpdateLog).toHaveBeenCalledWith(
+        env.MIGUCAST_DATA,
+        expect.stringContaining(
+          "self-fetch chain accepted batch 3: status=200",
+        ),
+      );
+      fetchSpy.mockRestore();
+    });
+
+    it("logs detailed context when self-fetch returns non-OK", async () => {
+      const env = createMockEnv();
+      mockProcessUpdateBatch.mockResolvedValueOnce({ completed: false });
+      const fetchSpy = vi
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValue(
+          new Response("unauthorized from edge", {
+            status: 401,
+            statusText: "Unauthorized",
+          }),
+        );
+      await processBatchAndChain(env, 0, "secret", "https://test.dev");
+      expect(fetchSpy).toHaveBeenCalled();
+      expect(mockAppendUpdateLog).toHaveBeenCalledWith(
+        env.MIGUCAST_DATA,
+        expect.stringContaining(
+          "self-fetch chain non-OK at batch 1: status=401",
+        ),
       );
       fetchSpy.mockRestore();
     });
