@@ -606,6 +606,33 @@ describe("worker", () => {
       const res = await handleRequest(req, env);
       expect(res.status).toBe(202);
     });
+
+    it("clears stuck state when force=true", async () => {
+      const kv = createMockKV();
+      const env = createMockEnv({
+        MIGUCAST_DATA: kv,
+        UPDATE_SECRET: "my-secret",
+      });
+      mockStartUpdate.mockResolvedValueOnce({
+        phase: "processing",
+        totalBatches: 0,
+        currentBatch: 0,
+        totalChannels: 0,
+        startedAt: Date.now(),
+        hours: 0,
+        categories: [],
+      });
+      const req = new Request(
+        "https://test.dev/internal/trigger-update?force=true",
+        {
+          method: "POST",
+          headers: { Authorization: "Bearer my-secret" },
+        },
+      );
+      const res = await handleRequest(req, env);
+      expect(res.status).toBe(202);
+      expect(kv.put).toHaveBeenCalledWith("update:state", "");
+    });
   });
 
   describe("handleRequest /internal/status", () => {
@@ -650,6 +677,27 @@ describe("worker", () => {
       expect(updateState.currentBatch).toBe(1);
       expect(updateState.totalBatches).toBe(3);
       expect(body.updateLog).toEqual(["[2026-03-02T00:00:00Z] test log entry"]);
+    });
+
+    it("flags stale updates stuck for more than 10 minutes", async () => {
+      const state = JSON.stringify({
+        phase: "processing",
+        currentBatch: 1,
+        totalBatches: 7,
+        totalChannels: 123,
+        startedAt: Date.now() - 15 * 60 * 1000, // 15 minutes ago
+      });
+      const kv = createMockKVWith((key) => {
+        if (key === "update:state") return Promise.resolve(state);
+        return Promise.resolve(null);
+      });
+      const env = createMockEnv({ MIGUCAST_DATA: kv });
+      const req = new Request("https://test.dev/internal/status");
+      const res = await handleRequest(req, env);
+      const body = (await res.json()) as Record<string, unknown>;
+      const updateState = body.updateState as Record<string, unknown>;
+      expect(updateState.stale).toBe(true);
+      expect(updateState.hint).toContain("mhost");
     });
 
     it("does not require authentication", async () => {
