@@ -3,6 +3,7 @@ import fs from "node:fs";
 import {
   FileStorageAdapter,
   InMemoryCacheAdapter,
+  TslogAdapter,
 } from "../../../src/platform/node.js";
 import type { CacheEntry } from "../../../src/types/index.js";
 
@@ -93,5 +94,59 @@ describe("InMemoryCacheAdapter", () => {
 
     const result = await cache.get("pid");
     expect(result?.url).toBe("http://new.com/stream");
+  });
+});
+
+describe("TslogAdapter", () => {
+  it("creates adapter with default pretty type", () => {
+    const adapter = new TslogAdapter({ logLevel: "info" });
+    expect(adapter).toBeDefined();
+  });
+
+  it("creates adapter with production JSON type", () => {
+    const adapter = new TslogAdapter({
+      logLevel: "warn",
+      isProduction: true,
+    });
+    expect(adapter).toBeDefined();
+  });
+
+  it("creates adapter with log file transport", () => {
+    const testLogFile = "/tmp/migucast-test.log";
+    const adapter = new TslogAdapter({
+      logLevel: "debug",
+      logFile: testLogFile,
+    });
+    expect(adapter).toBeDefined();
+    try {
+      fs.unlinkSync(testLogFile);
+    } catch {
+      // ignore cleanup errors
+    }
+  });
+
+  it("delegates info() to tslog", () => {
+    const adapter = new TslogAdapter({ logLevel: "info" });
+    expect(() => adapter.info("test message")).not.toThrow();
+  });
+
+  it("delegates warn() to tslog", () => {
+    const adapter = new TslogAdapter({ logLevel: "info" });
+    expect(() => adapter.warn("warning")).not.toThrow();
+  });
+
+  it("delegates error() to tslog", () => {
+    const adapter = new TslogAdapter({ logLevel: "info" });
+    expect(() => adapter.error("error msg")).not.toThrow();
+  });
+
+  it("delegates debug() to tslog", () => {
+    const adapter = new TslogAdapter({ logLevel: "debug" });
+    expect(() => adapter.debug("debug msg")).not.toThrow();
+  });
+
+  it("delegates trace() to tslog", () => {
+    const adapter = new TslogAdapter({ logLevel: "trace" });
+    expect(() => adapter.trace("trace msg")).not.toThrow();
   });
 });

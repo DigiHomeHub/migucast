@@ -188,6 +188,179 @@ describe("update_data", () => {
       expect(mockFetchMatchBasicData).toHaveBeenCalledWith("match1");
     });
 
+    it("logs failure when token refresh fails", async () => {
+      mockDataList.mockResolvedValue([
+        { name: "央视", vomsId: "v1", dataList: [] },
+      ]);
+      mockFetchMatchList.mockResolvedValue({
+        body: { days: [], matchList: {} },
+      });
+      mockRefreshToken.mockResolvedValueOnce(false);
+      await updatePlaylistData(720);
+      expect(mockRefreshToken).toHaveBeenCalled();
+    });
+
+    it("handles PE match with confrontTeams substitution", async () => {
+      mockDataList.mockResolvedValue([
+        { name: "央视", vomsId: "v1", dataList: [] },
+      ]);
+      mockFetchMatchList.mockResolvedValueOnce({
+        body: {
+          days: ["20260227", "20260228", "20260301", "20260302"],
+          matchList: {
+            "20260228": [
+              {
+                mgdbId: "match3",
+                pkInfoTitle: "Game Title",
+                competitionName: "League",
+                competitionLogo: "logo.png",
+                confrontTeams: [{ name: "TeamX" }, { name: "TeamY" }],
+              },
+            ],
+          },
+        },
+      });
+      mockFetchMatchBasicData.mockResolvedValueOnce({
+        body: {
+          endTime: Date.now() + 100000,
+          multiPlayList: {
+            liveList: [
+              {
+                name: "Main",
+                pID: "live002",
+                startTimeStr: "2026-02-28 20:00",
+              },
+            ],
+          },
+        },
+      });
+      await updatePlaylistData(6);
+      expect(mockFetchMatchBasicData).toHaveBeenCalledWith("match3");
+    });
+
+    it("skips PE match when fetchMatchBasicData returns undefined", async () => {
+      mockDataList.mockResolvedValue([
+        { name: "央视", vomsId: "v1", dataList: [] },
+      ]);
+      mockFetchMatchList.mockResolvedValueOnce({
+        body: {
+          days: ["20260227", "20260228", "20260301", "20260302"],
+          matchList: {
+            "20260228": [
+              {
+                mgdbId: "m1",
+                pkInfoTitle: "G",
+                competitionName: "L",
+                competitionLogo: "",
+              },
+            ],
+          },
+        },
+      });
+      mockFetchMatchBasicData.mockResolvedValueOnce(undefined);
+      await updatePlaylistData(6);
+      expect(mockFetchMatchReplayList).not.toHaveBeenCalled();
+    });
+
+    it("skips live items filtered as 集锦", async () => {
+      mockDataList.mockResolvedValue([
+        { name: "央视", vomsId: "v1", dataList: [] },
+      ]);
+      mockFetchMatchList.mockResolvedValueOnce({
+        body: {
+          days: ["20260227", "20260228", "20260301", "20260302"],
+          matchList: {
+            "20260228": [
+              {
+                mgdbId: "m4",
+                pkInfoTitle: "G",
+                competitionName: "Cup",
+                competitionLogo: "",
+              },
+            ],
+          },
+        },
+      });
+      mockFetchMatchBasicData.mockResolvedValueOnce({
+        body: {
+          endTime: Date.now() + 100000,
+          multiPlayList: {
+            liveList: [
+              { name: "精彩集锦", pID: "l1", startTimeStr: "2026-02-28 20:00" },
+              { name: null, pID: "l2", startTimeStr: "2026-02-28 20:00" },
+            ],
+          },
+        },
+      });
+      await updatePlaylistData(6);
+    });
+
+    it("handles PE replay with preList startTimeStr", async () => {
+      mockDataList.mockResolvedValue([
+        { name: "央视", vomsId: "v1", dataList: [] },
+      ]);
+      mockFetchMatchList.mockResolvedValueOnce({
+        body: {
+          days: ["20260227", "20260228", "20260301", "20260302"],
+          matchList: {
+            "20260228": [
+              {
+                mgdbId: "m5",
+                pkInfoTitle: "TeamA vs TeamB",
+                competitionName: "Cup",
+                competitionLogo: "l.png",
+              },
+            ],
+          },
+        },
+      });
+      mockFetchMatchBasicData.mockResolvedValueOnce({
+        body: {
+          endTime: 0,
+          keyword: "2026年02月28日 赛事",
+          multiPlayList: {
+            replayList: [{ name: "全场回放", pID: "r1" }],
+            preList: [{ startTimeStr: "2026-02-28 19:30" }],
+          },
+        },
+      });
+      mockFetchMatchReplayList.mockResolvedValueOnce({
+        body: { replayList: [{ name: "全场回放", pID: "r2" }] },
+      });
+      await updatePlaylistData(6);
+    });
+
+    it("handles PE match processing error gracefully", async () => {
+      mockDataList.mockResolvedValue([
+        { name: "央视", vomsId: "v1", dataList: [] },
+      ]);
+      mockFetchMatchList.mockResolvedValueOnce({
+        body: {
+          days: ["20260227", "20260228", "20260301", "20260302"],
+          matchList: {
+            "20260228": [
+              {
+                mgdbId: "m6",
+                pkInfoTitle: "G",
+                competitionName: "L",
+                competitionLogo: "",
+              },
+            ],
+          },
+        },
+      });
+      mockFetchMatchBasicData.mockResolvedValueOnce({
+        body: {
+          endTime: 0,
+          multiPlayList: null,
+        },
+      });
+      mockFetchMatchReplayList.mockResolvedValueOnce({
+        body: { replayList: null },
+      });
+      await updatePlaylistData(6);
+    });
+
     it("handles PE replay data for finished matches", async () => {
       mockDataList.mockResolvedValue([
         { name: "央视", vomsId: "v1", dataList: [] },

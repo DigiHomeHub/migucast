@@ -2,6 +2,13 @@ import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import http from "node:http";
 
 vi.mock("../../src/config.js", () => ({
+  config: {
+    logLevel: "info",
+    logFile: undefined,
+    dataDir: ".",
+    userId: "testUser",
+    token: "testToken",
+  },
   port: 0,
   host: "",
   pass: "",
@@ -16,27 +23,51 @@ vi.mock("../../src/config.js", () => ({
   logFile: undefined,
 }));
 
+vi.mock("../../src/logger.js", () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    trace: vi.fn(),
+  },
+  setLoggerImpl: vi.fn(),
+}));
+
+vi.mock("../../src/platform/context.js", () => ({
+  initPlatform: vi.fn(),
+}));
+
+vi.mock("../../src/platform/node.js", () => {
+  class MockTslogAdapter {
+    info = vi.fn();
+    warn = vi.fn();
+    error = vi.fn();
+    debug = vi.fn();
+    trace = vi.fn();
+  }
+  return {
+    FileStorageAdapter: vi.fn(),
+    InMemoryCacheAdapter: vi.fn(),
+    TslogAdapter: MockTslogAdapter,
+  };
+});
+
 vi.mock("../../src/utils/time.js", () => ({
-  getReadableDateTime: vi.fn(() => "2026-02-28 14:30:45"),
-  getDateString: vi.fn(() => "20260228"),
-  getLogDateTime: vi.fn(() => "2026-02-28 14:30:45:123"),
+  getReadableDateTime: vi.fn(() => "2026-03-02 12:00:00"),
 }));
 
 vi.mock("../../src/utils/update_data.js", () => ({
   updatePlaylistData: vi.fn(() => Promise.resolve()),
 }));
 
-vi.mock("../../src/utils/channel_list.js", () => ({
-  delay: vi.fn(() => Promise.resolve()),
-  fetchCategoryChannels: vi.fn(),
-  fetchCategories: vi.fn(),
-}));
-
 vi.mock("../../src/utils/request_handler.js", () => ({
-  servePlaylist: vi.fn(() => ({
-    content: "#EXTM3U test content",
-    contentType: "text/plain;charset=UTF-8",
-  })),
+  servePlaylist: vi.fn(() =>
+    Promise.resolve({
+      content: "#EXTM3U test content",
+      contentType: "text/plain;charset=UTF-8",
+    }),
+  ),
   channel: vi.fn(() =>
     Promise.resolve({
       code: 302,
@@ -47,15 +78,7 @@ vi.mock("../../src/utils/request_handler.js", () => ({
   ),
 }));
 
-vi.mock("../../src/utils/net.js", () => ({
-  fetchUrl: vi.fn(),
-  getLocalIpAddresses: vi.fn(() => []),
-}));
-
-vi.mock("../../src/utils/dd_calcu_url.js", () => ({
-  getDdCalcuUrl: vi.fn(),
-  getDdCalcuUrl720p: vi.fn(),
-}));
+import { createRequestHandler } from "../../src/app.js";
 
 function httpGet(url: string): Promise<{
   statusCode: number;
@@ -100,41 +123,26 @@ function httpRequest(
   });
 }
 
-let server: http.Server | undefined;
+let server: http.Server;
 let baseURL: string;
 
 beforeAll(async () => {
-  const capturedServers: http.Server[] = [];
-  const originalListen = http.Server.prototype.listen.bind(
-    http.Server.prototype,
-  );
-  vi.spyOn(http.Server.prototype, "listen").mockImplementation(function (
-    this: http.Server,
-    ...args: unknown[]
-  ) {
-    capturedServers.push(this);
-    return originalListen.call(this, 0, () => {
-      const addr = this.address();
+  const handler = createRequestHandler({
+    pass: "",
+    userId: "testUser",
+    token: "testToken",
+  });
+  server = http.createServer(handler);
+
+  await new Promise<void>((resolve) => {
+    server.listen(0, () => {
+      const addr = server.address();
       if (addr && typeof addr === "object") {
         baseURL = `http://127.0.0.1:${addr.port}`;
       }
-      const cb = args.find((a) => typeof a === "function") as
-        | (() => void)
-        | undefined;
-      cb?.();
+      resolve();
     });
   });
-
-  await import("../../src/app.js");
-  await new Promise<void>((resolve) => setTimeout(resolve, 200));
-  server = capturedServers[0];
-
-  if (!baseURL) {
-    const existing = http.createServer();
-    existing.listen(0);
-    await new Promise<void>((r) => existing.on("listening", r));
-    existing.close();
-  }
 });
 
 afterAll(() => {
@@ -142,13 +150,13 @@ afterAll(() => {
 });
 
 describe("app integration", () => {
-  it.skip("serves interface list on GET /", async () => {
+  it("serves interface list on GET /", async () => {
     const res = await httpGet(`${baseURL}/`);
     expect(res.statusCode).toBe(200);
     expect(res.body).toContain("EXTM3U");
   });
 
-  it.skip("rejects non-GET requests", async () => {
+  it("rejects non-GET requests", async () => {
     const res = await httpRequest(`${baseURL}/`, "POST");
     expect(res.statusCode).toBe(200);
     expect(res.body).toContain("GET");

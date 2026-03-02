@@ -17,7 +17,10 @@ vi.mock("../../src/utils/time.js", () => ({
 import {
   getDdCalcuUrl,
   getDdCalcuUrl720p,
+  initWasm,
+  getEncryptUrl,
 } from "../../src/utils/dd_calcu_url.js";
+import { fetchUrl } from "../../src/utils/net.js";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -168,6 +171,82 @@ describe("dd_calcu_url", () => {
       const r1 = getDdCalcuUrl720p(puDataUrl, "1234567890");
       const r2 = getDdCalcuUrl720p(puDataUrl, "1234567890");
       expect(r1).toBe(r2);
+    });
+  });
+
+  describe("getEncryptUrl", () => {
+    it("writes URL to memory, calls encrypt, reads result", () => {
+      const buffer = new ArrayBuffer(1024);
+      const memory = { buffer } as WebAssembly.Memory;
+      const resultOffset = 100;
+      const resultStr = "encrypted_result";
+
+      const mockGetEncrypt = vi.fn((_n: number) => {
+        const view = new Uint8Array(buffer);
+        for (let i = 0; i < resultStr.length; i++) {
+          view[resultOffset + i] = resultStr.charCodeAt(i);
+        }
+        view[resultOffset + resultStr.length] = 0;
+        return resultOffset;
+      });
+
+      const exports = {
+        k: memory,
+        m: mockGetEncrypt,
+      };
+
+      const result = getEncryptUrl(exports, "http://video.com/stream");
+      expect(result).toBe(resultStr);
+      expect(mockGetEncrypt).toHaveBeenCalledWith(0);
+    });
+
+    it("handles empty URL", () => {
+      const buffer = new ArrayBuffer(1024);
+      const memory = { buffer } as WebAssembly.Memory;
+      const mockGetEncrypt = vi.fn(() => {
+        const view = new Uint8Array(buffer);
+        view[50] = 0;
+        return 50;
+      });
+      const exports = { k: memory, m: mockGetEncrypt };
+      const result = getEncryptUrl(exports, "");
+      expect(result).toBe("");
+    });
+  });
+
+  describe("initWasm", () => {
+    it("fetches WASM URL and instantiates module", async () => {
+      const mockFetchUrl = vi.mocked(fetchUrl);
+      const mockMemory = { buffer: new ArrayBuffer(1024) };
+      const mockExports = {
+        k: mockMemory,
+        m: vi.fn(),
+      };
+
+      const mockResponse = {} as Response;
+      mockFetchUrl.mockResolvedValueOnce(mockResponse as unknown as undefined);
+
+      const originalInstantiateStreaming = WebAssembly.instantiateStreaming;
+      vi.stubGlobal("WebAssembly", {
+        ...WebAssembly,
+        instantiateStreaming: vi.fn(() =>
+          Promise.resolve({
+            instance: { exports: mockExports },
+            module: {} as WebAssembly.Module,
+          }),
+        ),
+      });
+
+      const result = await initWasm("https://example.com/encrypt.wasm");
+      expect(result).toEqual(mockExports);
+      expect(mockFetchUrl).toHaveBeenCalledWith(
+        "https://example.com/encrypt.wasm",
+      );
+
+      vi.stubGlobal("WebAssembly", {
+        ...WebAssembly,
+        instantiateStreaming: originalInstantiateStreaming,
+      });
     });
   });
 });
