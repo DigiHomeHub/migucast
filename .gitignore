@@ -6,6 +6,8 @@ dist/
 .pnpm-approve-builds.json
 .pnpm-store/
 coverage/
+# Cloudflare Workers local secrets
+.dev.vars
 # artifacts generated at runtime
 playlist.m3u
 playlist.txt

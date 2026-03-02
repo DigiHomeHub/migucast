@@ -167,13 +167,20 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
 async function handleScheduled(env: Env): Promise<void> {
   initWorkersPlatform(env);
   const secret = env.UPDATE_SECRET ?? "migucast-internal";
+  const origin = resolveOrigin(env);
 
   logger.info("Cron trigger: starting playlist update");
   const state = await startUpdate(env.MIGUCAST_DATA);
 
   if (state.totalBatches > 0) {
-    await processBatchAndChain(env, 0, secret, "https://migucast.workers.dev");
+    await processBatchAndChain(env, 0, secret, origin);
   }
+}
+
+/** Derive worker origin for self-fetch chain. Scheduled events have no request URL. */
+function resolveOrigin(env: Env): string {
+  if (env.mhost) return env.mhost;
+  return "https://migucast.workers.dev";
 }
 
 async function processBatchAndChain(

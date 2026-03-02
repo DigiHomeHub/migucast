@@ -9,18 +9,5 @@ crons = ["0 */6 * * *"]
 
 [[kv_namespaces]]
 binding = "MIGUCAST_DATA"
-id = "<replace-with-kv-namespace-id>"
-preview_id = "<replace-with-preview-kv-namespace-id>"
-
-[vars]
-# muserId = ""
-# mtoken = ""
-# mhost = ""
-# mpass = ""
-# mrateType = "3"
-# menableHDR = "true"
-# menableH265 = "true"
-# mupdateInterval = "6"
-
-# For the internal update chain authentication
-# UPDATE_SECRET = "your-secret-here"
+id = "placeholder"
+preview_id = "placeholder"
