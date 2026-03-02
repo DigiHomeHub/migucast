@@ -66,6 +66,32 @@ function initWorkersPlatform(env: Env): FullAppConfig {
   return parseConfig(env as unknown as Record<string, string | undefined>);
 }
 
+let initialUpdateTriggered = false;
+
+/** Reset the module-level flag (test helper only). */
+function resetInitialUpdateFlag(): void {
+  initialUpdateTriggered = false;
+}
+
+/**
+ * Check if KV has existing data; if not, trigger the full update.
+ * Guards against duplicate triggers via KV state check.
+ */
+async function maybeInitialUpdate(env: Env): Promise<void> {
+  const kv = env.MIGUCAST_DATA;
+  const lastUpdate = await kv.get("meta:lastUpdate", { type: "text" });
+  if (lastUpdate) return;
+
+  const stateRaw = await kv.get("update:state", { type: "text" });
+  if (stateRaw) {
+    const state = JSON.parse(stateRaw) as UpdateState;
+    if (state.phase !== "done") return;
+  }
+
+  logger.info("No existing data found, triggering initial update");
+  await handleScheduled(env);
+}
+
 const PLAYLIST_ROUTES = new Set([
   "/",
   "/interface.txt",
@@ -96,6 +122,16 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
     const batch = batchParam ? parseInt(batchParam, 10) : 0;
     await processBatchAndChain(env, batch, secret, url.origin);
     return new Response("OK", { status: 200 });
+  }
+
+  if (path === "/internal/trigger-update") {
+    const authHeader = request.headers.get("Authorization");
+    const secret = env.UPDATE_SECRET ?? "migucast-internal";
+    if (authHeader !== `Bearer ${secret}`) {
+      return new Response("Unauthorized", { status: 401 });
+    }
+    await handleScheduled(env);
+    return new Response("Update triggered", { status: 202 });
   }
 
   // Authentication check
@@ -227,6 +263,8 @@ export {
   handleScheduled,
   resolveOrigin,
   processBatchAndChain,
+  maybeInitialUpdate,
+  resetInitialUpdateFlag,
   PLAYLIST_ROUTES,
 };
 
@@ -234,10 +272,15 @@ export default {
   async fetch(
     request: Request,
     env: Env,
-    _ctx: ExecutionContext,
+    ctx: ExecutionContext,
   ): Promise<Response> {
     try {
-      return await handleRequest(request, env);
+      const response = await handleRequest(request, env);
+      if (!initialUpdateTriggered) {
+        initialUpdateTriggered = true;
+        ctx.waitUntil(maybeInitialUpdate(env));
+      }
+      return response;
     } catch (error) {
       logger.error(error);
       return new Response("Internal server error", { status: 500 });
