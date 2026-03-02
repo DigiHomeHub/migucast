@@ -6,7 +6,7 @@
 import { logger } from "../logger.js";
 import { dataDir } from "../config.js";
 import { appendFileSync, renameFileSync } from "../utils/file_util.js";
-import { updateEpgData } from "../utils/epg.js";
+import { buildEpgEntries } from "../utils/epg.js";
 import { writeFileSync } from "node:fs";
 import { fetchCategoryChannels } from "../utils/channel_list.js";
 import updateChannels from "../utils/zbpro.js";
@@ -53,7 +53,10 @@ if (!(start.getHours() % 6)) {
     logger.info("Updating EPG file...");
     for (const data of datas) {
       for (const item of data.dataList) {
-        await updateEpgData(item, epgFile, 10000, 8 * 60 * 60 * 1000);
+        const epgXml = await buildEpgEntries(item, 10000, 8 * 60 * 60 * 1000);
+        if (epgXml) {
+          appendFileSync(epgFile, epgXml);
+        }
       }
     }
 

@@ -1,0 +1,13 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "migucast"
+main = "src/worker.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[triggers]
+crons = ["0 */6 * * *"]
+
+[[kv_namespaces]]
+binding = "MIGUCAST_DATA"
+id = "placeholder"
+preview_id = "placeholder"

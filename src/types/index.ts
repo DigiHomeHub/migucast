@@ -37,7 +37,7 @@ export interface CategoryData {
 }
 
 export interface PlaylistResult {
-  content: string | Buffer | null;
+  content: string | null;
   contentType: string;
 }
 

@@ -1,0 +1,13 @@
+# Cloudflare Workers local development configuration.
+# Copy this file to .dev.vars and fill in your values.
+# .dev.vars is gitignored and read automatically by `wrangler dev`.
+
+# muserId=your-migu-user-id
+# mtoken=your-migu-token
+# mhost=http://localhost:8787
+# mpass=
+# mrateType=3
+# menableHDR=true
+# menableH265=true
+# mupdateInterval=6
+UPDATE_SECRET=any-random-string

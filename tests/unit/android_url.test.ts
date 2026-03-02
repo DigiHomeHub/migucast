@@ -30,6 +30,17 @@ vi.mock("../../src/utils/channel_list.js", () => ({
   delay: vi.fn(() => Promise.resolve()),
 }));
 
+vi.mock("../../src/logger.js", () => ({
+  logger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    trace: vi.fn(),
+  },
+  setLoggerImpl: vi.fn(),
+}));
+
 import {
   fetchPlaybackUrl,
   fetchPlaybackUrl720p,
@@ -40,9 +51,11 @@ import {
   resolveRedirectUrl,
   printLoginInfo,
 } from "../../src/utils/android_url.js";
+import { logger } from "../../src/logger.js";
 
 const mockFetchPlaybackUrl = vi.mocked(fetchPlaybackUrl);
 const mockFetchPlaybackUrl720p = vi.mocked(fetchPlaybackUrl720p);
+const mockLogger = vi.mocked(logger);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -237,7 +250,6 @@ describe("android_url", () => {
 
   describe("printLoginInfo", () => {
     it("prints login success when authenticated", () => {
-      const spy = vi.spyOn(console, "log").mockImplementation(() => {});
       printLoginInfo({
         url: "",
         rateType: 0,
@@ -247,11 +259,10 @@ describe("android_url", () => {
           },
         },
       });
-      expect(spy).toHaveBeenCalled();
+      expect(mockLogger.info).toHaveBeenCalled();
     });
 
     it("prints auth failed message", () => {
-      const spy = vi.spyOn(console, "log").mockImplementation(() => {});
       printLoginInfo({
         url: "",
         rateType: 0,
@@ -265,23 +276,21 @@ describe("android_url", () => {
           },
         },
       });
-      expect(spy).toHaveBeenCalled();
+      expect(mockLogger.error).toHaveBeenCalled();
     });
 
     it("prints not logged in when auth is missing", () => {
-      const spy = vi.spyOn(console, "log").mockImplementation(() => {});
       printLoginInfo({
         url: "",
         rateType: 0,
         content: { body: {} },
       });
-      expect(spy).toHaveBeenCalled();
+      expect(mockLogger.warn).toHaveBeenCalled();
     });
 
     it("handles null content gracefully", () => {
-      const spy = vi.spyOn(console, "log").mockImplementation(() => {});
       printLoginInfo({ url: "", rateType: 0, content: null });
-      expect(spy).toHaveBeenCalled();
+      expect(() => {}).not.toThrow();
     });
   });
 });

@@ -1,12 +1,11 @@
 /**
- * Electronic Program Guide (EPG) data fetcher and XMLTV writer.
+ * Electronic Program Guide (EPG) data fetcher and XMLTV builder.
  * Retrieves EPG schedules from two sources via the API layer:
  *   - Migu's own EPG API (for most channels)
  *   - CNTV's public EPG API (for CCTV-branded channels)
- * Outputs XMLTV-formatted `<channel>` and `<programme>` elements to a file.
+ * Returns XMLTV-formatted strings for in-memory assembly.
  */
 import { getDateString, getCompactDateTime } from "./time.js";
-import { appendFileSync } from "./file_util.js";
 import { cntvNames } from "./static_data.js";
 import { fetchMiguEpg } from "../api/migu_client.js";
 import { fetchCntvEpg } from "../api/cntv_client.js";
@@ -28,23 +27,22 @@ function escapeXml(str: string): string {
     .replaceAll("'", "&apos;");
 }
 
-/** Writes XMLTV channel and programme entries from Migu EPG data. */
-async function writeEpgFromMigu(
+/** Builds XMLTV channel + programme entries from Migu EPG data. Returns the XML string or null. */
+async function buildEpgFromMigu(
   program: ChannelInfo,
-  filePath: string,
   timeout: number = 6000,
   timezoneOffsetMs: number = 0,
-): Promise<boolean> {
+): Promise<string | null> {
   const date = new Date(Date.now() + timezoneOffsetMs);
   const today = getDateString(date);
   const resp = await fetchMiguEpg(program.pid, today, timeout);
   if (!resp) {
-    return false;
+    return null;
   }
 
   const rawItems = resp.body?.program?.[0]?.content;
   if (!rawItems) {
-    return false;
+    return null;
   }
 
   const epgData: EpgItem[] = rawItems.map((raw) => ({
@@ -53,8 +51,9 @@ async function writeEpgFromMigu(
     endTime: raw.endTime,
   }));
 
-  appendFileSync(
-    filePath,
+  const parts: string[] = [];
+
+  parts.push(
     `    <channel id="${program.name}">\n` +
       `        <display-name lang="zh">${program.name}</display-name>\n` +
       `    </channel>\n`,
@@ -63,40 +62,39 @@ async function writeEpgFromMigu(
   for (let i = 0; i < epgData.length; i++) {
     const item = epgData[i]!;
     const programName = escapeXml(item.programName);
-    appendFileSync(
-      filePath,
+    parts.push(
       `    <programme channel="${program.name}" start="${getCompactDateTime(new Date(item.startTime + timezoneOffsetMs))} +0800" stop="${getCompactDateTime(new Date(item.endTime + timezoneOffsetMs))} +0800">\n` +
         `        <title lang="zh">${programName}</title>\n` +
         `    </programme>\n`,
     );
   }
-  return true;
+  return parts.join("");
 }
 
-/** Writes XMLTV channel and programme entries from CNTV EPG data (CCTV channels only). */
-async function writeEpgFromCntv(
+/** Builds XMLTV channel + programme entries from CNTV EPG data. Returns the XML string or null. */
+async function buildEpgFromCntv(
   program: ChannelInfo,
-  filePath: string,
   timeout: number = 6000,
   timezoneOffsetMs: number = 0,
-): Promise<boolean> {
+): Promise<string | null> {
   const date = new Date(Date.now() + timezoneOffsetMs);
   const today = getDateString(date);
   const cntvName = cntvNames[program.name];
-  if (!cntvName) return false;
+  if (!cntvName) return null;
 
   const resp = await fetchCntvEpg(cntvName, today, timeout);
   if (!resp) {
-    return false;
+    return null;
   }
 
   const epgData = resp[cntvName]?.program;
   if (!epgData) {
-    return false;
+    return null;
   }
 
-  appendFileSync(
-    filePath,
+  const parts: string[] = [];
+
+  parts.push(
     `    <channel id="${program.name}">\n` +
       `        <display-name lang="zh">${program.name}</display-name>\n` +
       `    </channel>\n`,
@@ -105,27 +103,29 @@ async function writeEpgFromCntv(
   for (let i = 0; i < epgData.length; i++) {
     const item = epgData[i]!;
     const programName = escapeXml(item.t);
-    appendFileSync(
-      filePath,
+    parts.push(
       `    <programme channel="${program.name}" start="${getCompactDateTime(new Date(item.st * 1000 + timezoneOffsetMs))} +0800" stop="${getCompactDateTime(new Date(item.et * 1000 + timezoneOffsetMs))} +0800">\n` +
         `        <title lang="zh">${programName}</title>\n` +
         `    </programme>\n`,
     );
   }
-  return true;
+  return parts.join("");
 }
 
-/** Routes to the appropriate EPG source (CNTV for CCTV channels, Migu for all others). */
-async function updateEpgData(
+/**
+ * Builds XMLTV entries for a single channel.
+ * Routes to CNTV source for CCTV channels, Migu for all others.
+ * Returns the XML string or null on failure.
+ */
+async function buildEpgEntries(
   program: ChannelInfo,
-  filePath: string,
   timeout: number = 6000,
   timezoneOffsetMs: number = 0,
-): Promise<boolean> {
+): Promise<string | null> {
   if (cntvNames[program.name]) {
-    return writeEpgFromCntv(program, filePath, timeout, timezoneOffsetMs);
+    return buildEpgFromCntv(program, timeout, timezoneOffsetMs);
   }
-  return writeEpgFromMigu(program, filePath, timeout, timezoneOffsetMs);
+  return buildEpgFromMigu(program, timeout, timezoneOffsetMs);
 }
 
-export { updateEpgData };
+export { buildEpgEntries };

@@ -11,7 +11,7 @@ import {
   renameFileSync,
   writeFile,
 } from "../utils/file_util.js";
-import { updateEpgData } from "../utils/epg.js";
+import { buildEpgEntries } from "../utils/epg.js";
 import { dataDir } from "../config.js";
 import { logger } from "../logger.js";
 
@@ -44,7 +44,10 @@ async function fetchURLByAndroid720p(): Promise<void> {
 
     for (let j = 0; j < data.length; j++) {
       const item = data[j]!;
-      await updateEpgData(item, epgFile);
+      const epgXml = await buildEpgEntries(item);
+      if (epgXml) {
+        appendFileSync(epgFile, epgXml);
+      }
 
       const resObj = await getAndroidUrl720p(item.pid);
 
