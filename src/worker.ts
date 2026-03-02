@@ -294,10 +294,30 @@ async function processBatchAndChain(
         kv,
         `chaining to batch ${batch + 1} via ${chainUrl}`,
       );
-      await fetch(chainUrl, {
+      const response = await fetch(chainUrl, {
         method: "POST",
         headers: { Authorization: `Bearer ${secret}` },
       });
+
+      if (!response.ok) {
+        const responseBody = await response.text();
+        const bodySnippet = responseBody.slice(0, 300).replace(/\s+/g, " ");
+        await appendUpdateLog(
+          kv,
+          `self-fetch chain non-OK at batch ${batch + 1}: status=${response.status} ` +
+            `statusText=${response.statusText || "(empty)"} body=${bodySnippet || "(empty)"}`,
+        );
+        logger.error(
+          `Self-fetch chain returned non-OK status ${response.status} ` +
+            `for batch ${batch + 1}`,
+        );
+        return;
+      }
+
+      await appendUpdateLog(
+        kv,
+        `self-fetch chain accepted batch ${batch + 1}: status=${response.status}`,
+      );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       await appendUpdateLog(
