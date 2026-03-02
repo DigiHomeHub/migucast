@@ -28,6 +28,8 @@ import type { WorkersKVNamespace } from "../platform/workers.js";
 const CHANNELS_PER_BATCH = 20;
 const MATCHES_PER_BATCH = 15;
 const STATE_KEY = "update:state";
+const LOG_KEY = "update:log";
+const MAX_LOG_ENTRIES = 50;
 
 export interface FlattenedMatch {
   mgdbId: string;
@@ -56,6 +58,27 @@ function computeBatches(categories: CategoryData[]): number {
     totalChannels += cat.dataList.length;
   }
   return Math.ceil(totalChannels / CHANNELS_PER_BATCH);
+}
+
+/** Append a timestamped log entry to KV `update:log`, capped at MAX_LOG_ENTRIES. */
+export async function appendUpdateLog(
+  kv: WorkersKVNamespace,
+  message: string,
+): Promise<void> {
+  let entries: string[] = [];
+  try {
+    const raw = await kv.get(LOG_KEY, { type: "text" });
+    if (raw) {
+      entries = JSON.parse(raw) as string[];
+    }
+  } catch {
+    // corrupted log — start fresh
+  }
+  entries.push(`[${new Date().toISOString()}] ${message}`);
+  if (entries.length > MAX_LOG_ENTRIES) {
+    entries = entries.slice(entries.length - MAX_LOG_ENTRIES);
+  }
+  await kv.put(LOG_KEY, JSON.stringify(entries));
 }
 
 function flattenChannels(
@@ -104,6 +127,10 @@ export async function startUpdate(
   };
 
   await kv.put(STATE_KEY, JSON.stringify(state));
+  await appendUpdateLog(
+    kv,
+    `update started: ${totalChannels} channels in ${totalBatches} batches`,
+  );
   logger.info(
     `Update started: ${totalChannels} channels in ${totalBatches} batches`,
   );
@@ -448,6 +475,10 @@ async function finishUpdate(
 
   const elapsed = (Date.now() - state.startedAt) / 1000;
   const sportsCount = state.sportMatches?.length ?? 0;
+  await appendUpdateLog(
+    kv,
+    `update completed: ${state.totalChannels} TV + ${sportsCount} sports in ${elapsed}s`,
+  );
   logger.info(
     `Update completed: ${state.totalChannels} TV channels + ${sportsCount} sport matches in ${elapsed}s`,
   );
