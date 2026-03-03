@@ -32,6 +32,8 @@ This project is a ground-up TypeScript rewrite of [develop202/migu_video](https:
 
 ## Quick Start
 
+Recommended deployment target: a Node.js server or Docker host with stable network access to Migu's mainland China APIs.
+
 ### Node.js
 
 ```bash
@@ -154,72 +156,6 @@ services:
 ```bash
 docker build -t migucast .
 docker run -d -p 1234:1234 --name migucast migucast
-```
-
-## Cloudflare Workers
-
-migucast can also run on [Cloudflare Workers](https://workers.cloudflare.com/) (free tier). The Worker entry point is `src/worker.ts`, which uses Workers KV for storage and Cron Triggers for periodic updates.
-
-### First-time setup
-
-```bash
-# 1. Install wrangler (included as a dev dependency)
-pnpm install
-
-# 2. Authenticate with Cloudflare
-npx wrangler login
-
-# 3. Create KV namespaces
-npx wrangler kv namespace create MIGUCAST_DATA
-npx wrangler kv namespace create MIGUCAST_DATA --preview
-
-# Note the returned IDs for the next step.
-```
-
-### Local development
-
-```bash
-cp .dev.vars.example .dev.vars
-# Edit .dev.vars with your values
-npx wrangler dev
-```
-
-`wrangler dev` reads `.dev.vars` automatically and creates a local KV store — no real namespace ID required.
-
-### Production deployment
-
-Deployment is handled by the `deploy-workers.yml` GitHub Actions workflow, which injects all configuration from repository secrets. Push to `main` or trigger the workflow manually.
-
-#### GitHub Repository Secrets
-
-Configure these in **Settings > Secrets and variables > Actions**:
-
-| Secret                      | Required | Description                                          |
-| --------------------------- | -------- | ---------------------------------------------------- |
-| `CLOUDFLARE_API_TOKEN`      | Yes      | Cloudflare API token with Workers edit permission    |
-| `KV_NAMESPACE_ID`           | Yes      | Production KV namespace ID                           |
-| `KV_PREVIEW_NAMESPACE_ID`   | Yes      | Preview KV namespace ID                              |
-| `UPDATE_SECRET`             | Yes      | Random string for internal update chain auth         |
-| `MIGU_USER_ID`              | No       | Migu account user ID (anonymous 720p if omitted)     |
-| `MIGU_TOKEN`                | No       | Migu account token                                   |
-| `WORKER_HOST`               | No       | Worker URL, e.g. `https://migucast.example.workers.dev` |
-| `WORKER_PASS`               | No       | Access password                                      |
-| `RATE_TYPE`                 | No       | Stream quality tier (default `3`)                    |
-| `ENABLE_HDR`                | No       | Enable HDR (default `true`)                          |
-| `ENABLE_H265`               | No       | Enable H.265 (default `true`)                        |
-| `UPDATE_INTERVAL`           | No       | Refresh interval in hours (default `6`)              |
-
-#### Manual CLI deployment
-
-If you prefer deploying from your local machine instead of GitHub Actions:
-
-```bash
-# Fill in real KV namespace IDs in wrangler.toml (do not commit)
-npx wrangler secret put muserId
-npx wrangler secret put mtoken
-npx wrangler secret put UPDATE_SECRET
-# ... set other secrets as needed
-npx wrangler deploy
 ```
 
 ## Development
