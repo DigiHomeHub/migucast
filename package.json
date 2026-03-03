@@ -1,6 +1,6 @@
 {
   "name": "migucast",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "type": "module",
   "packageManager": "pnpm@10.30.3",
   "engines": {
@@ -35,7 +35,6 @@
     ]
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260228.1",
     "@types/node": "^25.3.2",
     "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^10.0.2",
