@@ -191,6 +191,94 @@ describe("request_handler", () => {
       expect(String(result.content)).not.toContain("Sports");
     });
 
+    it("filters playlist.m3u routes with CRLF content and preserves only matches", async () => {
+      mockStorage.get.mockResolvedValueOnce(
+        [
+          '#EXTM3U x-tvg-url="${replace}/epg.xml"',
+          "#EXTVLCOPT:http-user-agent=test",
+          '#EXTINF:-1 group-title="News",Channel A',
+          "${replace}/3001",
+          '#EXTINF:-1 group-title="Sports",Channel B',
+          "${replace}/3002",
+        ].join("\r\n"),
+      );
+
+      const result = await servePlaylist(
+        "/playlist.m3u/News",
+        defaultHeaders,
+        "defaultUser",
+        "defaultToken",
+      );
+
+      expect(result.contentType).toBe("audio/x-mpegurl; charset=utf-8");
+      expect(String(result.content)).toContain("Channel A");
+      expect(String(result.content)).not.toContain("Channel B");
+    });
+
+    it("returns only the M3U header when no group-title entries match", async () => {
+      mockStorage.get.mockResolvedValueOnce(
+        [
+          '#EXTM3U x-tvg-url="${replace}/epg.xml"',
+          '#EXTINF:-1 group-title="Sports",Channel B',
+          "${replace}/4002",
+        ].join("\n"),
+      );
+
+      const result = await servePlaylist(
+        "/m3u/News",
+        defaultHeaders,
+        "defaultUser",
+        "defaultToken",
+      );
+
+      expect(String(result.content).trim()).toBe(
+        '#EXTM3U x-tvg-url="http://localhost:1234/epg.xml"',
+      );
+    });
+
+    it("keeps the playlist unfiltered when the group-title route segment is empty", async () => {
+      mockStorage.get.mockResolvedValueOnce(
+        [
+          '#EXTM3U x-tvg-url="${replace}/epg.xml"',
+          '#EXTINF:-1 group-title="News",Channel A',
+          "${replace}/5001",
+        ].join("\n"),
+      );
+
+      const result = await servePlaylist(
+        "/m3u/",
+        defaultHeaders,
+        "defaultUser",
+        "defaultToken",
+      );
+
+      expect(result.contentType).toBe("audio/x-mpegurl; charset=utf-8");
+      expect(String(result.content)).toContain("Channel A");
+      expect(String(result.content)).toContain("http://localhost:1234/5001");
+    });
+
+    it("falls back to the raw route segment when group-title decoding fails", async () => {
+      mockStorage.get.mockResolvedValueOnce(
+        [
+          '#EXTM3U x-tvg-url="${replace}/epg.xml"',
+          '#EXTINF:-1 group-title="%E0%A4%A",Broken Encoded',
+          "${replace}/6001",
+          '#EXTINF:-1 group-title="News",Channel A',
+          "${replace}/6002",
+        ].join("\n"),
+      );
+
+      const result = await servePlaylist(
+        "/m3u/%E0%A4%A",
+        defaultHeaders,
+        "defaultUser",
+        "defaultToken",
+      );
+
+      expect(String(result.content)).toContain("Broken Encoded");
+      expect(String(result.content)).not.toContain("Channel A");
+    });
+
     it("returns txt file for /txt", async () => {
       const result = await servePlaylist(
         "/txt",

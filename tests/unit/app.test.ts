@@ -241,6 +241,30 @@ describe("createRequestHandler", () => {
     });
   });
 
+  it("serves filtered playlist routes when password auth succeeds", async () => {
+    const authedHandler = createRequestHandler({
+      pass: "secret",
+      userId: "defaultUser",
+      token: "defaultToken",
+    });
+    const { req, res } = createMockReqRes("GET", "/secret/playlist.m3u/News", {
+      host: "localhost",
+    });
+    authedHandler(req, res);
+    await vi.waitFor(() => {
+      expect(mockServePlaylist).toHaveBeenCalledWith(
+        "/playlist.m3u/News",
+        expect.any(Object),
+        "defaultUser",
+        "defaultToken",
+      );
+      expect(res.setHeader).toHaveBeenCalledWith(
+        "content-disposition",
+        expect.stringContaining("playlist.m3u"),
+      );
+    });
+  });
+
   it("rejects non-GET requests", async () => {
     const { req, res } = createMockReqRes("POST", "/");
     handler(req, res);
@@ -324,6 +348,22 @@ describe("createRequestHandler", () => {
     const { req, res } = createMockReqRes("GET", "/somechannel");
     handler(req, res);
     await vi.waitFor(() => {
+      expect(res.writeHead).toHaveBeenCalledWith(302, expect.any(Object));
+    });
+  });
+
+  it("extracts credentials for non-playlist routes before resolving channels", async () => {
+    const { req, res } = createMockReqRes(
+      "GET",
+      "/customUser/customToken/12345",
+    );
+    handler(req, res);
+    await vi.waitFor(() => {
+      expect(mockChannel).toHaveBeenCalledWith(
+        "/12345",
+        "customUser",
+        "customToken",
+      );
       expect(res.writeHead).toHaveBeenCalledWith(302, expect.any(Object));
     });
   });
