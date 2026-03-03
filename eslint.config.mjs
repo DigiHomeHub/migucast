@@ -58,5 +58,5 @@ export default tseslint.config(
       "@typescript-eslint/unbound-method": "off",
     },
   },
-  { ignores: ["dist/", "node_modules/", "*.js", "*.mjs", "eslint.config.mjs", "src/worker.ts", "src/workers/"] },
+  { ignores: ["dist/", "node_modules/", "*.js", "*.mjs", "eslint.config.mjs"] },
 );

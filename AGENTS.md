@@ -5,9 +5,8 @@
 `migucast` is a TypeScript rewrite of the original Migu IPTV bridge. It fetches live TV and sports data, builds IPTV artifacts, and serves them through:
 
 - a Node.js HTTP server in `src/app.ts`
-- a Cloudflare Workers entry point in `src/worker.ts`
 
-The same core business logic is shared across both runtimes through the platform abstraction layer in `src/platform/`.
+The core business logic lives under `src/` with runtime wiring centered on the Node.js platform adapters in `src/platform/`.
 
 ## Stack and Runtime Expectations
 
@@ -22,10 +21,9 @@ The same core business logic is shared across both runtimes through the platform
 
 ### Shared Logic First
 
-Prefer implementing business logic in shared modules under `src/` so Node and Workers stay behaviorally aligned.
+Prefer implementing business logic in shared modules under `src/` so request handling, playlist generation, and update logic stay centralized.
 
 - Node-specific wiring belongs in `src/app.ts` and `src/platform/node.ts`
-- Workers-specific wiring belongs in `src/worker.ts`, `src/platform/workers.ts`, and `src/workers/`
 - Shared request, playlist, channel, and update logic belongs in `src/utils/`, `src/api/`, and `src/platform/context.ts`
 
 ### Respect the Platform Abstractions
@@ -34,11 +32,7 @@ Do not bypass the storage, cache, or logger adapters.
 
 - Use `initPlatform(...)` to register runtime adapters
 - Use `getStorage()` and `getCache()` from `src/platform/context.ts`
-- Keep filesystem access in Node adapters and KV access in Workers adapters
-
-### Keep Node and Workers Semantics Consistent
-
-Any change to routing, auth, playlist generation, cache behavior, or update flow should be checked in both runtimes.
+- Keep filesystem access in Node adapters
 
 Current behavior that must remain consistent unless intentionally changed:
 
@@ -120,7 +114,6 @@ Testing notes:
 - `vitest.config.ts` excludes `tests/smoke/**` from the default test run
 - Smoke coverage lives in `tests/smoke/`
 - Coverage thresholds are enforced in Vitest
-- When changing Workers code, keep `src/worker.ts` compatible with the current TypeScript setup, which intentionally avoids depending on Workers types in the main tsconfig
 
 ## Project-Specific Implementation Notes
 
@@ -135,7 +128,6 @@ Testing notes:
 - The main update orchestration lives in `src/utils/update_data.ts`
 - TV and sports updates are separate pipelines
 - Node runs updates on an interval from `src/app.ts`
-- Workers run scheduled chunked updates from `src/workers/chunked_update.ts`
 
 ### External Boundaries
 
@@ -143,7 +135,6 @@ Mock only true external boundaries in tests:
 
 - HTTP requests
 - filesystem access
-- Cloudflare KV
 
 Do not mock internal project logic when a real unit or integration test is practical.
 
@@ -157,7 +148,7 @@ Do not mock internal project logic when a real unit or integration test is pract
 ## Agent Workflow for This Repository
 
 1. Read the affected runtime entry points and the shared module before editing.
-2. Verify whether the change impacts both Node and Workers.
+2. Verify whether the change impacts the shared modules and the Node runtime wiring.
 3. Add or update tests first for meaningful behavior changes.
 4. Implement the smallest complete change.
 5. Run targeted checks, then broader validation if the change touches shared behavior.
