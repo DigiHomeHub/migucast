@@ -101,6 +101,7 @@ set mport=3000 && set mhost="http://localhost:3000" && pnpm start
 | ----------------------- | ----------------------------- |
 | `GET /`                 | M3U 播放列表                  |
 | `GET /playlist.m3u`     | M3U 文件下载                  |
+| `GET /m3u/:groupTitle`  | 按精确 `group-title` 过滤的 M3U 播放列表 |
 | `GET /playlist.txt`     | 纯文本频道列表                |
 | `GET /epg.xml`          | XMLTV EPG 数据                |
 | `GET /:channelId`       | 302 重定向到直播流            |
@@ -111,6 +112,8 @@ set mport=3000 && set mhost="http://localhost:3000" && pnpm start
 设置 `mpass` 后，所有路径需添加密码前缀：`GET /:pass/...`
 
 可通过 URL 传递自定义凭证：`GET /:userId/:token/:channelId`
+
+如需按分组过滤，可在 `/m3u/` 后追加精确的 `group-title` 值，例如：`GET /m3u/%E5%A4%AE%E8%A7%86`
 
 ## Docker
 

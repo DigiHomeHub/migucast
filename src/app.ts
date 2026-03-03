@@ -26,8 +26,28 @@ import {
   TslogAdapter,
 } from "./platform/node.js";
 
-const PLAYLIST_ROUTES =
-  "/,/interface.txt,/m3u,/txt,/epg.xml,/playlist.m3u,/playlist.txt";
+function isPlaylistRoute(url: string): boolean {
+  return (
+    url === "/" ||
+    url === "/interface.txt" ||
+    url === "/m3u" ||
+    url.startsWith("/m3u/") ||
+    url === "/txt" ||
+    url === "/epg.xml" ||
+    url === "/playlist.m3u" ||
+    url.startsWith("/playlist.m3u/") ||
+    url === "/playlist.txt"
+  );
+}
+
+function isM3uRoute(url: string): boolean {
+  return (
+    url === "/m3u" ||
+    url.startsWith("/m3u/") ||
+    url === "/playlist.m3u" ||
+    url.startsWith("/playlist.m3u/")
+  );
+}
 
 export interface AuthResult {
   url: string;
@@ -75,10 +95,8 @@ export function extractCredentials(
   if (/\/{1}[^/\s]{1,}\/{1}[^/\s]{1,}/.test(url)) {
     const urlSplit = url.split("/");
     if (urlSplit.length >= 3) {
-      const extractedUrl =
-        urlSplit.length === 3
-          ? "/"
-          : "/" + (urlSplit[urlSplit.length - 1] ?? "");
+      const remainder = urlSplit.slice(3).join("/");
+      const extractedUrl = remainder === "" ? "/" : `/${remainder}`;
       return {
         url: extractedUrl,
         userId: urlSplit[1] ?? "",
@@ -128,10 +146,14 @@ export function createRequestHandler(deps: {
         }
         url = authResult.url;
 
-        const creds = extractCredentials(url, deps.userId, deps.token);
-        url = creds.url;
-        const urlUserId = creds.userId;
-        const urlToken = creds.token;
+        let urlUserId = deps.userId;
+        let urlToken = deps.token;
+        if (!isPlaylistRoute(url)) {
+          const creds = extractCredentials(url, deps.userId, deps.token);
+          url = creds.url;
+          urlUserId = creds.userId;
+          urlToken = creds.token;
+        }
 
         logger.info("Request URL: " + url);
 
@@ -144,7 +166,7 @@ export function createRequestHandler(deps: {
           return;
         }
 
-        if (PLAYLIST_ROUTES.indexOf(url) !== -1) {
+        if (isPlaylistRoute(url)) {
           const genericHeaders: Record<string, string | undefined> = {};
           for (const [key, value] of Object.entries(headers)) {
             genericHeaders[key] = Array.isArray(value)
@@ -161,7 +183,7 @@ export function createRequestHandler(deps: {
             playlistResult.content = "Fetch failed";
           }
           res.setHeader("Content-Type", playlistResult.contentType);
-          if (url === "/m3u" || url === "/playlist.m3u") {
+          if (isM3uRoute(url)) {
             res.setHeader(
               "content-disposition",
               'inline; filename="playlist.m3u"',

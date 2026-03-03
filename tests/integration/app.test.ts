@@ -156,6 +156,12 @@ describe("app integration", () => {
     expect(res.body).toContain("EXTM3U");
   });
 
+  it("serves filtered m3u routes on GET /m3u/:groupTitle", async () => {
+    const res = await httpGet(`${baseURL}/m3u/News`);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toContain("EXTM3U");
+  });
+
   it("rejects non-GET requests", async () => {
     const res = await httpRequest(`${baseURL}/`, "POST");
     expect(res.statusCode).toBe(200);

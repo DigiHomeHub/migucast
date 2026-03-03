@@ -150,6 +150,19 @@ describe("extractCredentials", () => {
     });
   });
 
+  it("preserves nested route segments after credential extraction", () => {
+    const result = extractCredentials(
+      "/myuser/mytoken/m3u/%E5%A4%AE%E8%A7%86",
+      "def",
+      "def",
+    );
+    expect(result).toEqual({
+      url: "/m3u/%E5%A4%AE%E8%A7%86",
+      userId: "myuser",
+      token: "mytoken",
+    });
+  });
+
   it("returns defaults for single-segment URL", () => {
     const result = extractCredentials("/", "defUser", "defToken");
     expect(result).toEqual({
@@ -255,6 +268,43 @@ describe("createRequestHandler", () => {
         "content-disposition",
         expect.stringContaining("playlist.m3u"),
       );
+    });
+  });
+
+  it("serves filtered playlist routes under /m3u/:groupTitle", async () => {
+    const { req, res } = createMockReqRes("GET", "/m3u/%E5%A4%AE%E8%A7%86", {
+      host: "localhost",
+    });
+    handler(req, res);
+    await vi.waitFor(() => {
+      expect(mockServePlaylist).toHaveBeenCalledWith(
+        "/m3u/%E5%A4%AE%E8%A7%86",
+        expect.any(Object),
+        "defaultUser",
+        "defaultToken",
+      );
+      expect(res.setHeader).toHaveBeenCalledWith(
+        "content-disposition",
+        expect.stringContaining("playlist.m3u"),
+      );
+    });
+  });
+
+  it("supports credential override for nested filtered m3u routes", async () => {
+    const { req, res } = createMockReqRes(
+      "GET",
+      "/customUser/customToken/m3u/News",
+      { host: "localhost" },
+    );
+    handler(req, res);
+    await vi.waitFor(() => {
+      expect(mockServePlaylist).toHaveBeenCalledWith(
+        "/m3u/News",
+        expect.any(Object),
+        "customUser",
+        "customToken",
+      );
+      expect(res.end).toHaveBeenCalledWith("#EXTM3U test");
     });
   });
 

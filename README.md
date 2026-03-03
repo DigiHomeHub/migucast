@@ -101,6 +101,7 @@ set mport=3000 && set mhost="http://localhost:3000" && pnpm start
 | --------------------- | ------------------------------ |
 | `GET /`               | M3U playlist                   |
 | `GET /playlist.m3u`   | M3U file download (attachment) |
+| `GET /m3u/:groupTitle` | M3U playlist filtered by exact `group-title` |
 | `GET /playlist.txt`   | Plain-text channel list        |
 | `GET /epg.xml`        | XMLTV EPG data                 |
 | `GET /:channelId`     | 302 redirect to live stream    |
@@ -111,6 +112,8 @@ set mport=3000 && set mhost="http://localhost:3000" && pnpm start
 When `mpass` is set, prefix all paths with the password: `GET /:pass/...`
 
 Custom per-request credentials can be passed via the URL: `GET /:userId/:token/:channelId`
+
+To filter by group title, append the exact `group-title` value after `/m3u/`, for example: `GET /m3u/%E5%A4%AE%E8%A7%86`
 
 ## Docker
 
