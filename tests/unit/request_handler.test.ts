@@ -144,6 +144,53 @@ describe("request_handler", () => {
       expect(result.contentType).toBe("audio/x-mpegurl; charset=utf-8");
     });
 
+    it("filters m3u entries by group-title from the route segment", async () => {
+      mockStorage.get.mockResolvedValueOnce(
+        [
+          '#EXTM3U x-tvg-url="${replace}/epg.xml"',
+          '#EXTINF:-1 group-title="News",Channel A',
+          "${replace}/1001",
+          '#EXTINF:-1 group-title="Sports",Channel B',
+          "${replace}/1002",
+        ].join("\n"),
+      );
+
+      const result = await servePlaylist(
+        "/m3u/News",
+        defaultHeaders,
+        "defaultUser",
+        "defaultToken",
+      );
+
+      expect(result.contentType).toBe("audio/x-mpegurl; charset=utf-8");
+      expect(String(result.content)).toContain("Channel A");
+      expect(String(result.content)).not.toContain("Channel B");
+      expect(String(result.content)).toContain("http://localhost:1234/epg.xml");
+      expect(String(result.content)).toContain("http://localhost:1234/1001");
+    });
+
+    it("decodes group-title route segments before filtering", async () => {
+      mockStorage.get.mockResolvedValueOnce(
+        [
+          '#EXTM3U x-tvg-url="${replace}/epg.xml"',
+          '#EXTINF:-1 group-title="央视",CCTV-1',
+          "${replace}/2001",
+          '#EXTINF:-1 group-title="体育",Sports',
+          "${replace}/2002",
+        ].join("\n"),
+      );
+
+      const result = await servePlaylist(
+        "/m3u/%E5%A4%AE%E8%A7%86",
+        defaultHeaders,
+        "defaultUser",
+        "defaultToken",
+      );
+
+      expect(String(result.content)).toContain("CCTV-1");
+      expect(String(result.content)).not.toContain("Sports");
+    });
+
     it("returns txt file for /txt", async () => {
       const result = await servePlaylist(
         "/txt",

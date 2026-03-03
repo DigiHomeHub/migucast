@@ -21,6 +21,61 @@ import type {
   PlaylistResult,
 } from "../types/index.js";
 
+function filterM3uByGroupTitle(content: string, groupTitle: string): string {
+  const normalizedContent = content.replaceAll("\r\n", "\n");
+  const lines = normalizedContent.split("\n");
+  const header = lines[0] ?? "#EXTM3U";
+  const filteredLines: string[] = [header];
+
+  for (let i = 1; i < lines.length; i++) {
+    const currentLine = lines[i] ?? "";
+    if (!currentLine.startsWith("#EXTINF:")) {
+      continue;
+    }
+
+    const match = currentLine.match(/group-title="([^"]+)"/);
+    const streamLine = lines[i + 1] ?? "";
+    if (match?.[1] === groupTitle && streamLine !== "") {
+      filteredLines.push(currentLine, streamLine);
+    }
+    i += 1;
+  }
+
+  return `${filteredLines.join("\n")}\n`;
+}
+
+function getPlaylistGroupTitle(url: string): string | null {
+  const m3uPrefixes = ["/m3u/", "/playlist.m3u/"];
+
+  for (const prefix of m3uPrefixes) {
+    if (!url.startsWith(prefix)) {
+      continue;
+    }
+
+    const rawGroupTitle = url.slice(prefix.length);
+    if (rawGroupTitle === "") {
+      return null;
+    }
+
+    try {
+      return decodeURIComponent(rawGroupTitle);
+    } catch {
+      return rawGroupTitle;
+    }
+  }
+
+  return null;
+}
+
+function isM3uPlaylistRoute(url: string): boolean {
+  return (
+    url === "/m3u" ||
+    url.startsWith("/m3u/") ||
+    url === "/playlist.m3u" ||
+    url.startsWith("/playlist.m3u/")
+  );
+}
+
 /** Reads playlist/EPG content from storage and replaces the `${replace}` placeholder with the resolved host URL. */
 async function servePlaylist(
   url: string,
@@ -43,11 +98,10 @@ async function servePlaylist(
     case "/playlist.txt":
       storageKey = "playlist:txt";
       break;
-    case "/m3u":
-    case "/playlist.m3u":
-      result.contentType = "audio/x-mpegurl; charset=utf-8";
-      break;
     default:
+      if (isM3uPlaylistRoute(url)) {
+        result.contentType = "audio/x-mpegurl; charset=utf-8";
+      }
       break;
   }
 
@@ -88,6 +142,11 @@ async function servePlaylist(
     "${replace}",
     replaceHost,
   );
+
+  const groupTitle = getPlaylistGroupTitle(url);
+  if (groupTitle !== null) {
+    result.content = filterM3uByGroupTitle(result.content, groupTitle);
+  }
 
   return result;
 }
