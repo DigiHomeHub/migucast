@@ -76,6 +76,33 @@ function isM3uPlaylistRoute(url: string): boolean {
   );
 }
 
+function isAbsoluteHttpUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url);
+}
+
+function buildSegmentUrlFromPlaybackUrl(
+  playbackUrl: string,
+  segmentPath: string,
+  rawQuery: string,
+): string | null {
+  if (!isAbsoluteHttpUrl(playbackUrl)) {
+    return null;
+  }
+
+  try {
+    const playback = new URL(playbackUrl);
+    const baseDir = playback.pathname.includes("/")
+      ? playback.pathname.substring(0, playback.pathname.lastIndexOf("/") + 1)
+      : "/";
+    const baseUrl = `${playback.origin}${baseDir}`;
+    const segmentUrl = new URL(segmentPath, baseUrl);
+    segmentUrl.search = rawQuery;
+    return segmentUrl.toString();
+  } catch {
+    return null;
+  }
+}
+
 /** Reads playlist/EPG content from storage and replaces the `${replace}` placeholder with the resolved host URL. */
 async function servePlaylist(
   url: string,
@@ -175,8 +202,7 @@ async function channel(
   }
   let pid = urlSplit;
   let params = "";
-
-  if (urlSplit.match(/\?/)) {
+  if (urlSplit.includes("?")) {
     logger.info("Processing incoming parameters");
     const urlSplit1 = urlSplit.split("?");
     pid = urlSplit1[0]!;
@@ -186,6 +212,38 @@ async function channel(
   }
 
   if (isNaN(Number(pid))) {
+    const segmentParams = new URLSearchParams(params);
+    const segmentProgramId = segmentParams.get("ProgramID");
+    if (segmentProgramId !== null && !isNaN(Number(segmentProgramId))) {
+      logger.warn(
+        `[diag] Non-numeric path "${pid}" detected; attempting ProgramID fallback: ${segmentProgramId}`,
+      );
+      const segmentCacheResult = await channelCache(segmentProgramId, "");
+      if (
+        segmentCacheResult.haveCache &&
+        segmentCacheResult.code === 302 &&
+        segmentCacheResult.playUrl !== ""
+      ) {
+        const segmentPlayUrl = buildSegmentUrlFromPlaybackUrl(
+          segmentCacheResult.playUrl,
+          pid,
+          params,
+        );
+        if (segmentPlayUrl !== null) {
+          result.code = 302;
+          result.pid = segmentProgramId;
+          result.playUrl = segmentPlayUrl;
+          result.desc = "ProgramID segment fallback";
+          logger.info(
+            `[diag] ProgramID segment fallback success: ${segmentPlayUrl}`,
+          );
+          return result;
+        }
+      }
+      logger.warn(
+        `[diag] ProgramID segment fallback failed (cache miss or invalid cache URL) for ${segmentProgramId}`,
+      );
+    }
     result.desc = "Invalid URL format";
     return result;
   }
@@ -213,12 +271,17 @@ async function channel(
     return result;
   }
   logger.trace(`URL after encryption: ${resObj.url}`);
+  logger.info(`[diag] PID ${pid} initial playback URL: ${resObj.url}`);
 
   if (resObj.url !== "") {
     const location = await resolveRedirectUrl(resObj);
     if (location !== "") {
+      logger.info(`[diag] PID ${pid} resolved redirect Location: ${location}`);
       resObj.url = location;
     }
+    logger.info(
+      `[diag] PID ${pid} playback URL after redirect resolution (absolute=${isAbsoluteHttpUrl(resObj.url)}): ${resObj.url}`,
+    );
   }
   printLoginInfo(resObj);
 
@@ -256,6 +319,12 @@ async function channel(
     }
   }
 
+  if (!isAbsoluteHttpUrl(playUrl)) {
+    logger.error(
+      `[diag] PID ${pid} final play URL is non-absolute (likely to cause local segment requests): ${playUrl}`,
+    );
+  }
+
   logger.info("URL fetched successfully");
   result.code = 302;
   result.playUrl = playUrl;
@@ -279,8 +348,14 @@ async function channelCache(
     const cache = getCache();
     const cacheEntry = await cache.get(pid);
     if (cacheEntry) {
-      cacheResult.haveCache = true;
       let playUrl = cacheEntry.url;
+      if (playUrl !== "" && !isAbsoluteHttpUrl(playUrl)) {
+        logger.warn(
+          `[diag] Cache entry for PID ${pid} is non-absolute; bypassing cache entry: ${playUrl}`,
+        );
+        return cacheResult;
+      }
+      cacheResult.haveCache = true;
       let msg = "Program adjusted, temporarily unavailable";
       if (cacheEntry.content !== null) {
         printLoginInfo(cacheEntry as unknown as AndroidUrlResult);

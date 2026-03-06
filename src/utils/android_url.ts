@@ -13,6 +13,25 @@ import type { AndroidUrlResult } from "../types/index.js";
 import { fetchPlaybackUrl, fetchPlaybackUrl720p } from "../api/migu_client.js";
 
 const clientId = getStringMd5(Date.now().toString());
+const MIGU_PLAY_BASE = "https://play.miguvideo.com";
+
+function toAbsolutePlaybackUrl(
+  url: string,
+  baseUrl: string = MIGU_PLAY_BASE,
+): string {
+  if (url === "") {
+    return "";
+  }
+  try {
+    return new URL(url).toString();
+  } catch {
+    try {
+      return new URL(url, baseUrl).toString();
+    } catch {
+      return url;
+    }
+  }
+}
 
 /**
  * Fetches a signed playback URL via the API layer with user credentials.
@@ -109,6 +128,14 @@ async function getAndroidUrl720p(pid: string): Promise<AndroidUrlResult> {
  * Skips intermediate "bofang" redirect URLs and retries on failure with a 150ms back-off.
  */
 async function resolveRedirectUrl(resObj: AndroidUrlResult): Promise<string> {
+  const rawPlaybackUrl = resObj.url;
+  resObj.url = toAbsolutePlaybackUrl(resObj.url);
+  if (rawPlaybackUrl !== resObj.url) {
+    logger.warn(
+      `[diag] Normalized playback probe URL from "${rawPlaybackUrl}" to "${resObj.url}"`,
+    );
+  }
+  logger.info(`[diag] resolveRedirectUrl start URL: ${resObj.url}`);
   try {
     let attempt = 1;
     while (attempt <= 6) {
@@ -132,10 +159,27 @@ async function resolveRedirectUrl(resObj: AndroidUrlResult): Promise<string> {
       clearTimeout(timeoutId);
 
       if (obj) {
+        logger.info(
+          `[diag] Redirect probe attempt #${attempt}: status=${obj.status}, responseUrl=${obj.url}`,
+        );
         const location = obj.headers.get("Location");
         if (location && location !== "") {
-          if (!location.startsWith("http://bofang")) {
-            return location;
+          let resolvedLocation = location;
+          try {
+            const locationBase = obj.url === "" ? resObj.url : obj.url;
+            resolvedLocation = toAbsolutePlaybackUrl(location, locationBase);
+          } catch {
+            // Keep raw Location when URL normalization fails.
+          }
+          logger.info(
+            `[diag] Redirect probe attempt #${attempt}: raw Location="${location}", resolved="${resolvedLocation}"`,
+          );
+          const normalizedLocation = resolvedLocation.toLowerCase();
+          if (
+            !normalizedLocation.startsWith("http://bofang") &&
+            !normalizedLocation.startsWith("https://bofang")
+          ) {
+            return resolvedLocation;
           }
         }
       }

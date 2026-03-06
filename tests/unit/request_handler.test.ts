@@ -402,6 +402,40 @@ describe("request_handler", () => {
       const result = await channel("/500001", "", "");
       expect(result.desc).toBe("URL request error");
     });
+
+    it("falls back non-numeric segment requests via ProgramID cache", async () => {
+      mockCache.get.mockResolvedValueOnce({
+        expiresAt: Date.now() + 3600000,
+        url: "http://hlszymgspvod.miguvideo.com:8080/depository_eos_wxlz04/asset/zhengshi/5106/336/549/5106336549/media/5106336549_5332756614_56.mp4.m3u8?foo=bar",
+        content: null,
+      });
+
+      const result = await channel(
+        "/5106336549_5332756614_56.mp4_0-0.ts?ProgramID=963419018&encrypt=ce8e580f6ca0cad64315dc9a8907d3ad",
+        "",
+        "",
+      );
+
+      expect(result.code).toBe(302);
+      expect(result.pid).toBe("963419018");
+      expect(result.playUrl).toBe(
+        "http://hlszymgspvod.miguvideo.com:8080/depository_eos_wxlz04/asset/zhengshi/5106/336/549/5106336549/media/5106336549_5332756614_56.mp4_0-0.ts?ProgramID=963419018&encrypt=ce8e580f6ca0cad64315dc9a8907d3ad",
+      );
+      expect(mockGetAndroidURL720p).not.toHaveBeenCalled();
+    });
+
+    it("returns invalid format when ProgramID fallback has no cache", async () => {
+      mockCache.get.mockResolvedValueOnce(null);
+
+      const result = await channel(
+        "/5106336549_5332756614_56.mp4_0-0.ts?ProgramID=963419018&encrypt=ce8e580f6ca0cad64315dc9a8907d3ad",
+        "",
+        "",
+      );
+
+      expect(result.code).toBe(200);
+      expect(result.desc).toBe("Invalid URL format");
+    });
   });
 
   describe("channelCache", () => {
@@ -432,6 +466,17 @@ describe("request_handler", () => {
       const result = await channelCache("12345", "key=val&foo=bar");
       expect(result.playUrl).toContain("key=val");
       expect(result.playUrl).toContain("foo=bar");
+    });
+
+    it("ignores non-absolute cached URLs and treats them as cache miss", async () => {
+      mockCache.get.mockResolvedValueOnce({
+        expiresAt: Date.now() + 3600000,
+        url: "/5106336781_5332758925_56.mp4_0-9.ts?foo=bar",
+        content: null,
+      });
+      const result = await channelCache("12345", "");
+      expect(result.haveCache).toBe(false);
+      expect(result.code).toBe(200);
     });
 
     it("returns error desc when cached URL is empty", async () => {

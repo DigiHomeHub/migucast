@@ -23,6 +23,17 @@ vi.mock("../../src/logger.js", () => ({
 
 vi.mock("../../src/utils/time.js", () => ({
   getDateString: vi.fn(() => "20260228"),
+  getCompactDateTime: vi.fn((date: Date) => {
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    return (
+      date.getUTCFullYear().toString() +
+      pad(date.getUTCMonth() + 1) +
+      pad(date.getUTCDate()) +
+      pad(date.getUTCHours()) +
+      pad(date.getUTCMinutes()) +
+      pad(date.getUTCSeconds())
+    );
+  }),
 }));
 
 vi.mock("../../src/utils/channel_list.js", () => ({
@@ -30,11 +41,19 @@ vi.mock("../../src/utils/channel_list.js", () => ({
 }));
 
 const mockStorage = {
-  get: vi.fn<(key: string) => Promise<string | null>>().mockResolvedValue(null),
+  get: vi
+    .fn<(key: string) => Promise<string | null>>()
+    .mockImplementation((key: string) =>
+      Promise.resolve(storageState.get(key) ?? null),
+    ),
   put: vi
     .fn<(key: string, value: string) => Promise<void>>()
-    .mockResolvedValue(undefined),
+    .mockImplementation((key: string, value: string) => {
+      storageState.set(key, value);
+      return Promise.resolve();
+    }),
 };
+const storageState = new Map<string, string>();
 
 vi.mock("../../src/platform/context.js", () => ({
   getStorage: () => mockStorage,
@@ -71,8 +90,7 @@ const mockRefreshToken = vi.mocked(refreshToken);
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockStorage.get.mockResolvedValue(null);
-  mockStorage.put.mockResolvedValue(undefined);
+  storageState.clear();
 });
 
 describe("update_data", () => {
@@ -405,6 +423,99 @@ describe("update_data", () => {
 
       expect(mockFetchMatchBasicData).toHaveBeenCalledWith("match2");
       expect(mockFetchMatchReplayList).toHaveBeenCalledWith("match2");
+    });
+
+    it("writes sports XMLTV entries for live sports channels so tvg-id can match", async () => {
+      mockDataList.mockResolvedValue([
+        { name: "央视", vomsId: "v1", dataList: [] },
+      ]);
+      mockFetchMatchList.mockResolvedValueOnce({
+        body: {
+          days: ["20260227", "20260228", "20260301", "20260302"],
+          matchList: {
+            "20260228": [
+              {
+                mgdbId: "live-match-1",
+                pkInfoTitle: "OriginalTitle",
+                competitionName: "NBA",
+                competitionLogo: "nba-logo.png",
+                confrontTeams: [{ name: "Lakers" }, { name: "Celtics" }],
+              },
+            ],
+          },
+        },
+      });
+      mockFetchMatchBasicData.mockResolvedValueOnce({
+        body: {
+          endTime: Date.now() + 60 * 60 * 1000,
+          multiPlayList: {
+            liveList: [
+              {
+                name: "中文解说",
+                pID: "live001",
+                startTimeStr: "2026-02-28 20:00",
+              },
+            ],
+          },
+        },
+      });
+
+      await updatePlaylistData(6);
+
+      const m3u = storageState.get("playlist:m3u") ?? "";
+      const epg = storageState.get("epg:xml") ?? "";
+
+      expect(m3u).toContain('tvg-id="LakersVSCeltics"');
+      expect(epg).toContain('<channel id="LakersVSCeltics">');
+      expect(epg).toContain('<programme channel="LakersVSCeltics"');
+      expect(epg).toContain(
+        '<title lang="zh">NBA LakersVSCeltics 中文解说 20:00</title>',
+      );
+    });
+
+    it("writes replay sports XMLTV entries using preList start time when needed", async () => {
+      mockDataList.mockResolvedValue([
+        { name: "央视", vomsId: "v1", dataList: [] },
+      ]);
+      mockFetchMatchList.mockResolvedValueOnce({
+        body: {
+          days: ["20260227", "20260228", "20260301", "20260302"],
+          matchList: {
+            "20260228": [
+              {
+                mgdbId: "replay-match-1",
+                pkInfoTitle: "ReplayTeams",
+                competitionName: "英超",
+                competitionLogo: "epl-logo.png",
+              },
+            ],
+          },
+        },
+      });
+      mockFetchMatchBasicData.mockResolvedValueOnce({
+        body: {
+          endTime: 0,
+          keyword: "2026年02月28日 赛事",
+          multiPlayList: {
+            replayList: [{ name: "全场回放", pID: "replay001" }],
+            preList: [{ startTimeStr: "2026-02-28 19:30" }],
+          },
+        },
+      });
+      mockFetchMatchReplayList.mockResolvedValueOnce({
+        body: {
+          replayList: [{ name: "全场回放", pID: "replay001" }],
+        },
+      });
+
+      await updatePlaylistData(6);
+
+      const epg = storageState.get("epg:xml") ?? "";
+      expect(epg).toContain('<channel id="ReplayTeams">');
+      expect(epg).toContain('<programme channel="ReplayTeams"');
+      expect(epg).toContain(
+        '<title lang="zh">英超 ReplayTeams 全场回放 19:30</title>',
+      );
     });
   });
 });

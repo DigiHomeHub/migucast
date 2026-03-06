@@ -7,6 +7,14 @@
  */
 import { fetchCategoryChannels } from "./channel_list.js";
 import { buildEpgEntries } from "./epg.js";
+import {
+  buildSportsEpgEntriesXml,
+  mergeXmltvWithEntries,
+  parseSportsDateTime,
+  resolveSportsEndTimeMs,
+  resolveSportsReplayStartTimeMs,
+  type SportsEpgEntry,
+} from "./epg_sports.js";
 import { getStorage } from "../platform/context.js";
 import { host, token, userId } from "../config.js";
 import refreshToken from "./refresh_token.js";
@@ -109,9 +117,11 @@ async function updatePE(_hours: number): Promise<void> {
   const storage = getStorage();
   const existingM3u = (await storage.get("playlist:m3u")) ?? "";
   const existingTxt = (await storage.get("playlist:txt")) ?? "";
+  const existingEpg = (await storage.get("epg:xml")) ?? "";
 
   const m3uParts: string[] = [existingM3u];
   const txtParts: string[] = [existingTxt];
+  const sportsEpgEntries: SportsEpgEntry[] = [];
 
   logger.warn("Updating PE...");
 
@@ -168,6 +178,20 @@ async function updatePE(_hours: number): Promise<void> {
                 `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" group-title="${data.competitionName}",${competitionDesc}\n\${replace}/${replay.pID}\n`,
               );
               txtParts.push(`${competitionDesc},\${replace}/${replay.pID}\n`);
+              const replayStartTimeMs = resolveSportsReplayStartTimeMs(
+                peResultStartTimeStr,
+                peResult.body?.keyword,
+                timeStr,
+              );
+              sportsEpgEntries.push({
+                channelId: pkInfoTitle,
+                title: competitionDesc,
+                startTimeMs: replayStartTimeMs,
+                endTimeMs: resolveSportsEndTimeMs(
+                  replayStartTimeMs,
+                  peResult.body?.endTime,
+                ),
+              });
             }
           }
           continue;
@@ -185,6 +209,17 @@ async function updatePE(_hours: number): Promise<void> {
             `#EXTINF:-1 tvg-id="${pkInfoTitle}" tvg-name="${competitionDesc}" tvg-logo="${data.competitionLogo}" group-title="${data.competitionName}",${competitionDesc}\n\${replace}/${live.pID}\n`,
           );
           txtParts.push(`${competitionDesc},\${replace}/${live.pID}\n`);
+          const liveStartTimeMs =
+            parseSportsDateTime(live.startTimeStr) ?? Date.now();
+          sportsEpgEntries.push({
+            channelId: pkInfoTitle,
+            title: competitionDesc,
+            startTimeMs: liveStartTimeMs,
+            endTimeMs: resolveSportsEndTimeMs(
+              liveStartTimeMs,
+              peResult.body?.endTime,
+            ),
+          });
         }
       } catch {
         logger.warn(
@@ -197,6 +232,9 @@ async function updatePE(_hours: number): Promise<void> {
 
   await storage.put("playlist:m3u", m3uParts.join(""));
   await storage.put("playlist:txt", txtParts.join(""));
+  const sportsEpgXml = buildSportsEpgEntriesXml(sportsEpgEntries);
+  const mergedEpg = mergeXmltvWithEntries(existingEpg, sportsEpgXml, host);
+  await storage.put("epg:xml", mergedEpg);
 
   logger.info("PE update completed!");
   const end = Date.now();
