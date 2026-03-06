@@ -246,6 +246,43 @@ describe("android_url", () => {
       });
       expect(result).toBe("");
     });
+
+    it("resolves relative Location to absolute URL", async () => {
+      vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+        url: "https://edge.example.com/master.m3u8",
+        headers: new Headers({
+          Location: "/5106336519_5332747344_56.mp4_0-4.ts?foo=bar",
+        }),
+      } as Response);
+
+      const result = await resolveRedirectUrl({
+        url: "https://edge.example.com/master.m3u8",
+        rateType: 3,
+        content: null,
+      });
+      expect(result).toBe(
+        "https://edge.example.com/5106336519_5332747344_56.mp4_0-4.ts?foo=bar",
+      );
+    });
+
+    it("normalizes relative input URL before redirect probing", async () => {
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+        headers: new Headers({}),
+      } as Response);
+
+      await resolveRedirectUrl({
+        url: "/playurl/v1/hls/master.m3u8?foo=bar",
+        rateType: 3,
+        content: null,
+      });
+      expect(fetchSpy).toHaveBeenCalledWith(
+        "https://play.miguvideo.com/playurl/v1/hls/master.m3u8?foo=bar",
+        expect.objectContaining({
+          method: "GET",
+          redirect: "manual",
+        }),
+      );
+    });
   });
 
   describe("printLoginInfo", () => {
